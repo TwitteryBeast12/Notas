@@ -1,5 +1,7 @@
 # Notas
 
+Improve your Powershell knowledge AND documentation. Essential for documentation and training the newbies on the why and what.
+
 ## The Core Pain
 Engineers spend hours writing docs they hate writing. Runbooks go stale, wikis are empty, and institutional knowledge lives in people's heads. The people who know the most are the least likely to document it.
 
