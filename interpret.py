@@ -1,33 +1,81 @@
 import json
 import os
-import re
 import requests
 from typing import List, Dict, Optional
+from abc import ABC, abstractmethod
 
 # Noise filters: remove redundant commands
 NOISE_COMMANDS = {'ls', 'pwd', 'dir', 'clear', 'cls'}
 
-class OllamaLLM:
-    """Real connection to local Ollama instance."""
-    def __init__(self, model: str = "llama3", url: str = "http://localhost:11434"):
-        self.model = model
-        self.url = url
+class LLMProvider(ABC):
+    """Base class for all AI providers."""
+    @abstractmethod
+    def complete(self, prompt: str) -> str:
+        pass
+
+class OllamaProvider(LLMProvider):
+    def __init__(self, config: Dict):
+        self.model = config.get("model", "llama3")
+        self.url = config.get("url", "http://localhost:11434").rstrip('/')
 
     def complete(self, prompt: str) -> str:
         try:
             response = requests.post(
                 f"{self.url}/api/generate",
-                json={
-                    "model": self.model,
-                    "prompt": prompt,
-                    "stream": False
-                },
+                json={"model": self.model, "prompt": prompt, "stream": False},
                 timeout=60
             )
             response.raise_for_status()
             return response.json().get("response", "AI failed to generate content.")
         except Exception as e:
-            return f"Ollama Error: {str(e)}\n(Make sure Ollama is running and model '{self.model}' is pulled)"
+            return f"Ollama Error: {str(e)}"
+
+class OpenAIProvider(LLMProvider):
+    def __init__(self, config: Dict):
+        self.api_key = config.get("api_key")
+        self.model = config.get("model", "gpt-4")
+
+    def complete(self, prompt: str) -> str:
+        try:
+            headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+            data = {
+                "model": self.model,
+                "messages": [{"role": "user", "content": prompt}]
+            }
+            response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=data, timeout=60)
+            response.raise_for_status()
+            return response.json()['choices'][0]['message']['content']
+        except Exception as e:
+            return f"OpenAI Error: {str(e)}"
+
+class ConfigManager:
+    """Securely manages Notas configuration."""
+    def __init__(self, config_path: str = os.path.expanduser("~/.notas/config.json")):
+        self.path = config_path
+
+    def load(self) -> Dict:
+        if not os.path.exists(self.path):
+            return self.get_defaults()
+        try:
+            with open(self.path, 'r') as f:
+                return json.load(f)
+        except:
+            return self.get_defaults()
+
+    def get_defaults(self) -> Dict:
+        return {
+            "provider": "ollama",
+            "ollama": {"url": "http://localhost:11434", "model": "llama3"},
+            "openai": {"api_key": "", "model": "gpt-4"},
+            "anthropic": {"api_key": "", "model": "claude-3-opus"},
+        }
+
+    def save(self, config: Dict):
+        # Set strict permissions (Read/Write for user only)
+        os.makedirs(os.path.dirname(self.path), exist_ok=True)
+        with open(self.path, 'w') as f:
+            json.dump(config, f, indent=4)
+        os.chmod(self.path, 0o600)
 
 class NotasInterpreter:
     def __init__(self, session_id: str, base_dir: str = os.path.expanduser("~/.notas/sessions")):
@@ -111,8 +159,6 @@ Use these past documents for style and technical consistency:
 """
         return prompt
 
-    def generate_draft(self, llm_client, template_type="runbook"):
-        # User can now decide to skip AI and just get the raw logs formatted
-        # but this method is the AI-driven path.
+    def generate_draft(self, provider: LLMProvider, template_type="runbook"):
         prompt = self.prepare_prompt(template_type)
-        return llm_client.complete(prompt)
+        return provider.complete(prompt)
