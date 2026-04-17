@@ -10,3 +10,6 @@ Engineers spend hours writing docs they hate writing. Runbooks go stale, wikis a
 2. **AI Interpretation**: Understands what was being done and why, not just the raw commands.
 3. **Draft Generation**: Produces a runbook, wiki entry, or README in preferred formats (Confluence, Notion, Markdown, etc.).
 4. **Human Review**: Engineer edits/approves before publication.
+
+## Getting Started
+See [RUNNING.md](RUNNING.md) for installation and execution steps.

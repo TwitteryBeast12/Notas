@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Notas - Session List</title>
+    <style>
+        body { font-family: sans-serif; margin: 40px; background: #f4f4f9; color: #333; }
+        .session-card { background: white; padding: 15px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        a { text-decoration: none; color: #007bff; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Notas Sessions</h1>
+    <p>Select a session to generate and review a runbook.</p>
+    {% for s in sessions %}
+    <div class="session-card">
+        <span>Session: {{ s }}</span>
+        <a href="/review/{{ s }}">Review &rarr;</a>
+    </div>
+    {% endfor %}
+</body>
+</html>
