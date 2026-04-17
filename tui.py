@@ -1,7 +1,7 @@
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, ListView, ListItem, Label, TextArea, Static, Input, Button
 from textual.containers import Horizontal, Vertical, ModalScreen
-from interpret import NotasInterpreter, MockLLM
+from interpret import NotasInterpreter, OllamaLLM
 from exporter import NotasExporter
 import os
 
@@ -46,7 +46,6 @@ class ExportModal(ModalScreen):
                 exporter.export_local(path, self.content)
                 self.app.notify(f"Saved to {path}")
             elif btn_id == "exp-github":
-                # Simple implementation: assume repo is passed or hardcoded for POC
                 res = exporter.export_to_github("TwitteryBeast12/Notas", f"runbooks/session_{self.session_id}.md", self.content, token)
                 self.app.notify("Pushed to GitHub")
             elif btn_id == "exp-notion":
@@ -76,14 +75,12 @@ class NotasTUI(App):
     def create_list_view(self):
         container = Vertical(id="list-view")
         list_view = ListView()
-        
         session_dir = os.path.expanduser("~/.notas/sessions")
         if os.path.exists(session_dir):
             for f in os.listdir(session_dir):
                 if f.startswith("session_") and f.endswith(".json"):
                     sid = f.replace("session_", "").replace(".json", "")
                     list_view.append(SessionItem(sid))
-        
         container.mount(Label("Select Session to Review:", id="list-title"))
         container.mount(list_view)
         return container
@@ -91,16 +88,13 @@ class NotasTUI(App):
     def create_review_view(self, hidden=True):
         container = Horizontal(id="review-view")
         container.hidden = hidden
-        
         logs_pane = Vertical()
         logs_pane.mount(Label("Raw Output", id="pane-title"))
         logs_pane.mount(Static("Loading logs...", id="logs-content"))
-        
         edit_pane = Vertical()
         edit_pane.mount(Label("AI Draft", id="pane-title"))
         editor = TextArea(id="editor")
         edit_pane.mount(editor)
-        
         container.mount(logs_pane)
         container.mount(edit_pane)
         return container
@@ -115,11 +109,16 @@ class NotasTUI(App):
         self.query_one("#list-view").hidden = True
         
         interpreter = NotasInterpreter(session_id)
-        llm = MockLLM()
+        
+        # Ask user if they want AI Interpretation or just raw text
+        self.current_session_id = session_id
         view.query_one("#logs-content").update(interpreter.load_output())
+        
+        # Default: Prompt for AI
+        self.notify("Generating AI Draft via Ollama...")
+        llm = OllamaLLM() # Defaults to llama3 on localhost:11434
         draft = interpreter.generate_draft(llm)
         self.query_one("#editor").load_text(draft)
-        self.current_session_id = session_id
 
     def action_show_list(self):
         self.query_one("#review-view").hidden = True

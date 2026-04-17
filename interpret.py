@@ -1,10 +1,33 @@
 import json
 import os
 import re
-from typing import List, Dict
+import requests
+from typing import List, Dict, Optional
 
 # Noise filters: remove redundant commands
 NOISE_COMMANDS = {'ls', 'pwd', 'dir', 'clear', 'cls'}
+
+class OllamaLLM:
+    """Real connection to local Ollama instance."""
+    def __init__(self, model: str = "llama3", url: str = "http://localhost:11434"):
+        self.model = model
+        self.url = url
+
+    def complete(self, prompt: str) -> str:
+        try:
+            response = requests.post(
+                f"{self.url}/api/generate",
+                json={
+                    "model": self.model,
+                    "prompt": prompt,
+                    "stream": False
+                },
+                timeout=60
+            )
+            response.raise_for_status()
+            return response.json().get("response", "AI failed to generate content.")
+        except Exception as e:
+            return f"Ollama Error: {str(e)}\n(Make sure Ollama is running and model '{self.model}' is pulled)"
 
 class NotasInterpreter:
     def __init__(self, session_id: str, base_dir: str = os.path.expanduser("~/.notas/sessions")):
@@ -28,22 +51,17 @@ class NotasInterpreter:
         with open(self.txt_path, 'r') as f: return f.read()
 
     def get_relevant_context(self) -> str:
-        """Knowledge Graph: Scan previous drafts for similar keywords."""
         if not os.path.exists(self.drafts_dir): return ""
-        
         current_cmds = " ".join([c['command'] for c in self.load_session()]).lower()
         relevant_docs = []
-        
         for f in os.listdir(self.drafts_dir):
             if f.endswith(".md"):
                 with open(os.path.join(self.drafts_dir, f), 'r') as doc:
                     content = doc.read().lower()
-                    # Simple keyword overlap as a proxy for 'relevance'
                     words = set(current_cmds.split())
                     if any(word in content for word in words if len(word) > 4):
                         relevant_docs.append(f"\n--- Past Document ({f}) ---\n{doc.read()}")
-        
-        return "\n".join(relevant_docs[:2]) # Top 2 relevant docs
+        return "\n".join(relevant_docs[:2])
 
     def clean_noise(self, commands: List[Dict]) -> List[Dict]:
         cleaned = []
@@ -60,7 +78,6 @@ class NotasInterpreter:
         output = self.load_output()
         context = self.get_relevant_context()
         
-        # Load template
         template_path = os.path.join(os.path.expanduser("~/.notas/templates"), f"{template_type}.md")
         template_content = ""
         if os.path.exists(template_path):
@@ -95,9 +112,7 @@ Use these past documents for style and technical consistency:
         return prompt
 
     def generate_draft(self, llm_client, template_type="runbook"):
+        # User can now decide to skip AI and just get the raw logs formatted
+        # but this method is the AI-driven path.
         prompt = self.prepare_prompt(template_type)
         return llm_client.complete(prompt)
-
-class MockLLM:
-    def complete(self, prompt):
-        return "### Knowledge-Aware Draft\n\nBased on past sessions, this follows our standard naming convention...\n\n**Objective**: Verified Task."
