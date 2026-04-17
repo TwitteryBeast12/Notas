@@ -3,31 +3,45 @@
 ## 1. Install Prerequisites
 - **PowerShell 5.1+**
 - **Python 3.10+**
-- **FastAPI & Uvicorn**: `pip install fastapi uvicorn jinja2 python-multipart`
+- **Dependencies**: `pip install fastapi uvicorn jinja2 python-multipart textual requests`
 
-## 2. Start Capturing (PowerShell)
-1. Open PowerShell.
-2. Import the capture script:
+## 2. Fast Setup (Bash)
+Run the setup script to add the `notas` command to your shell:
+```bash
+bash ~/.notas/setup_bash.sh
+source ~/.bashrc
+```
+Now you can use:
+- `notas rec "My Task"` $\rightarrow$ Start recording.
+- `notas tui` $\rightarrow$ Open the review interface.
+
+## 3. Manual Execution (PowerShell)
+1. Import the capture script:
    ```powershell
    . .\capture.ps1
    ```
-3. Start a session:
+2. Start a session:
    ```powershell
    Start-NotasCapture
    ```
-4. Perform your tasks. When done, stop:
+3. Stop when done:
    ```powershell
    Stop-NotasCapture
    ```
 
-## 3. Generate & Review (AI/UI)
-1. Run the review server:
+## 4. Review & Export
+1. Run the TUI:
    ```bash
-   python app.py
+   python3 tui.py
    ```
-2. Open your browser to `http://127.0.0.1:8000`.
-3. Select your session $\rightarrow$ Edit the AI draft $\rightarrow$ Save as Markdown.
+2. Or run the Web Server:
+   ```bash
+   python3 app.py
+   ```
+3. Open browser to `http://127.0.0.1:8000`.
+4. Select session $\rightarrow$ Choose Template $\rightarrow$ Export to GitHub/Notion/Local.
 
-## 4. Storage
+## 5. Storage
 - **Logs**: `~/.notas/sessions/`
 - **Drafts**: `~/.notas/drafts/`
+- **Templates**: `~/.notas/templates/`
