@@ -3,7 +3,7 @@ import os
 import re
 from typing import List, Dict
 
-# Noise filters: remove redundant commands that don't change state much
+# Noise filters: remove redundant commands
 NOISE_COMMANDS = {'ls', 'pwd', 'dir', 'clear', 'cls'}
 
 class NotasInterpreter:
@@ -12,48 +12,72 @@ class NotasInterpreter:
         self.base_dir = base_dir
         self.json_path = os.path.join(base_dir, f"session_{session_id}.json")
         self.txt_path = os.path.join(base_dir, f"session_{session_id}.txt")
+        self.drafts_dir = os.path.expanduser("~/.notas/drafts")
 
     def load_session(self) -> List[Dict]:
         commands = []
-        if not os.path.exists(self.json_path):
-            return []
-        
+        if not os.path.exists(self.json_path): return []
         with open(self.json_path, 'r') as f:
             for line in f:
-                try:
-                    commands.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue
+                try: commands.append(json.loads(line))
+                except: continue
         return commands
 
     def load_output(self) -> str:
-        if not os.path.exists(self.txt_path):
-            return ""
-        with open(self.txt_path, 'r') as f:
-            return f.read()
+        if not os.path.exists(self.txt_path): return ""
+        with open(self.txt_path, 'r') as f: return f.read()
+
+    def get_relevant_context(self) -> str:
+        """Knowledge Graph: Scan previous drafts for similar keywords."""
+        if not os.path.exists(self.drafts_dir): return ""
+        
+        current_cmds = " ".join([c['command'] for c in self.load_session()]).lower()
+        relevant_docs = []
+        
+        for f in os.listdir(self.drafts_dir):
+            if f.endswith(".md"):
+                with open(os.path.join(self.drafts_dir, f), 'r') as doc:
+                    content = doc.read().lower()
+                    # Simple keyword overlap as a proxy for 'relevance'
+                    words = set(current_cmds.split())
+                    if any(word in content for word in words if len(word) > 4):
+                        relevant_docs.append(f"\n--- Past Document ({f}) ---\n{doc.read()}")
+        
+        return "\n".join(relevant_docs[:2]) # Top 2 relevant docs
 
     def clean_noise(self, commands: List[Dict]) -> List[Dict]:
-        """Removes repetitive or useless commands to reduce token burn."""
         cleaned = []
         last_cmd = None
-        
         for cmd in commands:
             c = cmd['command'].strip().split(' ')[0].lower()
-            if c in NOISE_COMMANDS and c == last_cmd:
-                continue
+            if c in NOISE_COMMANDS and c == last_cmd: continue
             cleaned.append(cmd)
             last_cmd = c
         return cleaned
 
-    def prepare_prompt(self) -> str:
+    def prepare_prompt(self, template_type="runbook") -> str:
         cmds = self.clean_noise(self.load_session())
         output = self.load_output()
+        context = self.get_relevant_context()
         
+        # Load template
+        template_path = os.path.join(os.path.expanduser("~/.notas/templates"), f"{template_type}.md")
+        template_content = ""
+        if os.path.exists(template_path):
+            with open(template_path, 'r') as f: template_content = f.read()
+
         cmd_sequence = "\n".join([f"[{c['timestamp']}] {c['command']}" for c in cmds])
         
         prompt = f"""
 # ROLE: Expert Technical Writer & SRE
-# TASK: Transform raw terminal logs into a professional runbook.
+# TASK: Transform raw terminal logs into a professional document.
+
+## CONTEXT (Knowledge Graph)
+Use these past documents for style and technical consistency:
+{context}
+
+## TEMPLATE TO FOLLOW
+{template_content}
 
 ## INPUT DATA
 ### Command Sequence:
@@ -63,43 +87,17 @@ class NotasInterpreter:
 {output}
 
 ## REQUIREMENTS
-1. Identify the overarching goal of the session.
+1. Identify the overarching goal.
 2. Group related commands into logical "Steps".
-3. For each step:
-   - List the command(s) used.
-   - Explain the intent (WHY this was done).
-   - Describe the expected result based on the raw output.
-4. Highlight any errors encountered and how they were resolved.
-5. Format as a clean Markdown runbook.
-
-## OUTPUT FORMAT
-# [Goal Title]
-**Objective:** [Brief description]
-**Prerequisites:** [Any tools/env needed]
-
-### Step 1: [Title]
-- **Command:** `command`
-- **Why:** [Explanation]
-- **Result:** [Expected Outcome]
-
-...
+3. Maintain consistency with provided Past Context.
+4. Format exactly as per the template.
 """
         return prompt
 
-    def generate_draft(self, llm_client):
-        """
-        llm_client should be an object with a .complete(prompt) method.
-        """
-        prompt = self.prepare_prompt()
+    def generate_draft(self, llm_client, template_type="runbook"):
+        prompt = self.prepare_prompt(template_type)
         return llm_client.complete(prompt)
 
-# Dummy LLM Client for testing the pipeline
 class MockLLM:
     def complete(self, prompt):
-        return "### Mock Runbook\n\n**Objective**: Test interpreted logs.\n\n### Step 1: Init\n- **Command**: `ls`\n- **Why**: Check dir\n- **Result**: Success."
-
-if __name__ == "__main__":
-    # Example usage
-    # interpreter = NotasInterpreter("20260416_201300")
-    # print(interpreter.prepare_prompt())
-    print("Interpreter logic loaded. Ready for LLM integration.")
+        return "### Knowledge-Aware Draft\n\nBased on past sessions, this follows our standard naming convention...\n\n**Objective**: Verified Task."
