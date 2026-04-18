@@ -9,7 +9,7 @@ Engineers spend hours writing docs they hate writing. Runbooks go stale, wikis a
 
 Notas transforms raw terminal chaos into structured knowledge using a four-stage pipeline:
 
-### 1. Stealth Capture (The Log)
+### 1. Local Capture (The Log)
 Instead of manually taking notes, you run `notas rec`. The tool hooks into the terminal session to record every command and its corresponding output. 
 - **Privacy First**: All data stays in `~/.notas/sessions/`. No cloud upload.
 - **Noise Reduction**: It automatically filters out redundant commands (like repeated `ls` or `clear`) to keep the signal high.
