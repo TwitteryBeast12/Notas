@@ -14,6 +14,7 @@ export declare class NotasInterpreter {
     loadOutput(): string;
     getRelevantContext(): string;
     cleanNoise(commands: CommandLog[]): CommandLog[];
+    scrubPII(text: string): string;
     preparePrompt(templateType?: string): string;
     generateDraft(templateType?: string): Promise<string>;
 }

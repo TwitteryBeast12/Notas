@@ -155,6 +155,20 @@ export class NotasInterpreter {
     return cleaned;
   }
 
+  scrubPII(text: string): string {
+    // Redact common secrets
+    let scrubbed = text
+      .replace(/(password|passwd|pwd)\s*[=:]\s*\S+/gi, '$1=[REDACTED]')
+      .replace(/(secret|api_key|apikey|token|auth)\s*[=:]\s*\S+/gi, '$1=[REDACTED]')
+      .replace(/(aws_access_key_id|aws_secret_access_key)\s*[=:]\s*\S+/gi, '$1=[REDACTED]')
+      .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
+      .replace(/-----BEGIN (RSA |DSA |EC )?PRIVATE KEY-----[\s\S]*?-----END (RSA |DSA |EC )?PRIVATE KEY-----/gi, '[PRIVATE KEY REDACTED]')
+      .replace(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g, '[EMAIL REDACTED]')
+      .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '[IP REDACTED]');
+    
+    return scrubbed;
+  }
+
   preparePrompt(templateType = 'runbook'): string {
     const cmds = this.cleanNoise(this.loadSession());
     const output = this.loadOutput();
@@ -200,10 +214,13 @@ ${output}
     const prompt = this.preparePrompt(templateType);
     const draftContent = await provider.complete(prompt);
     
+    // Scrub PII before saving
+    const scrubbedContent = this.scrubPII(draftContent);
+    
     mkdirSync(this.draftsDir, { recursive: true });
     const draftPath = join(this.draftsDir, `session_${this.sessionId}_${templateType}.md`);
-    writeFileSync(draftPath, draftContent, 'utf-8');
+    writeFileSync(draftPath, scrubbedContent, 'utf-8');
     
-    return draftContent;
+    return scrubbedContent;
   }
 }

@@ -5,6 +5,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import DraftList from './components/DraftList.js';
 import DraftView from './components/DraftView.js';
+import ExportView from './components/ExportView.js';
 
 interface Draft {
   filename: string;
@@ -35,7 +36,7 @@ const App: React.FC = () => {
     } catch (e) {
       // Directory doesn't exist
     }
-  });
+  }, []);
 
   const handleSelect = (draft: Draft) => {
     const content = readFileSync(join(draftsDir, draft.filename), 'utf-8');
@@ -51,17 +52,23 @@ const App: React.FC = () => {
   };
 
   const handleExport = () => {
-    // Export logic would be called here
     setView('export');
   };
 
-  if (view === 'export') {
+  const handleExportComplete = () => {
+    setView('list');
+    setSelectedDraft(null);
+    setDraftContent('');
+  };
+
+  if (view === 'export' && selectedDraft) {
     return (
-      <Box flexDirection="column">
-        <Text bold>🚀 Export</Text>
-        <Text>Export functionality coming soon.</Text>
-        <Text dimColor>Press ESC to go back.</Text>
-      </Box>
+      <ExportView
+        content={draftContent}
+        sessionId={selectedDraft.sessionId}
+        onBack={handleBack}
+        onExportComplete={handleExportComplete}
+      />
     );
   }
 

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Text } from 'ink';
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import DraftList from './components/DraftList.js';
 import DraftView from './components/DraftView.js';
+import ExportView from './components/ExportView.js';
 const App = () => {
     const [view, setView] = useState('list');
     const [drafts, setDrafts] = useState([]);
@@ -27,7 +27,7 @@ const App = () => {
         catch (e) {
             // Directory doesn't exist
         }
-    });
+    }, []);
     const handleSelect = (draft) => {
         const content = readFileSync(join(draftsDir, draft.filename), 'utf-8');
         setSelectedDraft(draft);
@@ -40,14 +40,15 @@ const App = () => {
         setView('list');
     };
     const handleExport = () => {
-        // Export logic would be called here
         setView('export');
     };
-    if (view === 'export') {
-        return (React.createElement(Box, { flexDirection: "column" },
-            React.createElement(Text, { bold: true }, "\uD83D\uDE80 Export"),
-            React.createElement(Text, null, "Export functionality coming soon."),
-            React.createElement(Text, { dimColor: true }, "Press ESC to go back.")));
+    const handleExportComplete = () => {
+        setView('list');
+        setSelectedDraft(null);
+        setDraftContent('');
+    };
+    if (view === 'export' && selectedDraft) {
+        return (React.createElement(ExportView, { content: draftContent, sessionId: selectedDraft.sessionId, onBack: handleBack, onExportComplete: handleExportComplete }));
     }
     if (view === 'preview' && selectedDraft) {
         return (React.createElement(DraftView, { content: draftContent, onBack: handleBack, onExport: handleExport }));
