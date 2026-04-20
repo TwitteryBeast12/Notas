@@ -1,27 +1,29 @@
 # How to Run Notas
 
 ## 1. Install Prerequisites
-- **PowerShell 5.1+**
-- **Python 3.10+**
-- **Dependencies**: 
-  ```bash
-  pip install fastapi uvicorn jinja2 python-multipart textual requests
-  ```
+- **PowerShell 5.1+** (Windows) or **Bash** (Linux/macOS)
+- **Node.js 18+** (Recommended: Use `nvm` or install from nodejs.org)
 
-## 2. Installation & Setup
-### For Windows (PowerShell)
-Run the setup script to configure your environment and preferences:
-```powershell
-.\setup_ps1.ps1
-```
-*The setup script will ask for your preferred interface (TUI or Web) and your AI provider settings.*
-
-### For Linux/macOS (Bash)
-Run the setup script to add the `notas` command to your shell:
+## 2. Installation
+### Option A: From Source (Dev)
 ```bash
-bash ~/.notas/setup_bash.sh
-source ~/.bashrc
+cd notas
+npm install
+npm run build
+npm link  # Makes 'notas' command available globally
 ```
+
+### Option B: Pre-built Binary (Release v0.1)
+1. Download `notas-win-x64.exe` (Windows) or `notas-linux-x64` (Linux) from [Releases](https://github.com/TwitteryBeast12/Notas/releases).
+2. Place it in your PATH (e.g., `C:\Windows\System32` or `/usr/local/bin`).
+3. Rename to `notas` (or `notas.exe`).
+
+## 3. Initial Setup
+Run `notas` once to generate the config folder:
+```bash
+notas --help
+```
+Edit `~/.notas/config.json` to set your AI provider (Ollama/OpenAI) and export targets.
 
 ## 3. Workflow: Capturing a Task
 1. **Start Recording**:

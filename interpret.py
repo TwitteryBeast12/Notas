@@ -65,9 +65,12 @@ class ConfigManager:
     def get_defaults(self) -> Dict:
         return {
             "provider": "ollama",
+            "default_ui": "tui",
             "ollama": {"url": "http://localhost:11434", "model": "llama3"},
             "openai": {"api_key": "", "model": "gpt-4"},
             "anthropic": {"api_key": "", "model": "claude-3-opus"},
+            "github": {"repo": "", "token": ""},
+            "notion": {"page_id": "", "token": ""},
         }
 
     def save(self, config: Dict):
@@ -161,4 +164,12 @@ Use these past documents for style and technical consistency:
 
     def generate_draft(self, provider: LLMProvider, template_type="runbook"):
         prompt = self.prepare_prompt(template_type)
-        return provider.complete(prompt)
+        draft_content = provider.complete(prompt)
+        
+        # Auto-save draft to disk for persistence
+        os.makedirs(self.drafts_dir, exist_ok=True)
+        draft_path = os.path.join(self.drafts_dir, f"session_{self.session_id}_{template_type}.md")
+        with open(draft_path, 'w', encoding='utf-8') as f:
+            f.write(draft_content)
+            
+        return draft_content

@@ -2,23 +2,23 @@ from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, ListView, ListItem, Label, TextArea, Static, Input, Button
 from textual.containers import Horizontal, Vertical, ModalScreen
 from interpret import NotasInterpreter, OllamaLLM
-from exporter import NotasExporter
+from draft_manager import DraftManager
 import os
 
 class SessionItem(ListItem):
-    def __init__(self, session_id: str):
+    def __init__(self, filename: str):
         super().__init__()
-        self.session_id = session_id
-        self.label = Label(f"Session: {session_id}")
+        self.filename = filename
+        self.label = Label(f"Draft: {filename}")
 
     def compose(self) -> ComposeResult:
         yield self.label
 
 class ExportModal(ModalScreen):
-    def __init__(self, content: str, session_id: str):
+    def __init__(self, draft_filename: str, manager: DraftManager):
         super().__init__()
-        self.content = content
-        self.session_id = session_id
+        self.draft_filename = draft_filename
+        self.manager = manager
 
     def compose(self) -> ComposeResult:
         yield Vertical(
@@ -34,33 +34,38 @@ class ExportModal(ModalScreen):
     def on_button_pressed(self, event):
         btn_id = event.button.id
         token = self.query_one("#token-input").value
-        exporter = NotasExporter()
-
+        
         if btn_id == "exp-cancel":
             self.app.pop_screen()
             return
 
         try:
-            if btn_id == "exp-local":
-                path = os.path.expanduser(f"~/.notas/drafts/runbook_{self.session_id}.md")
-                exporter.export_local(path, self.content)
-                self.app.notify(f"Saved to {path}")
-            elif btn_id == "exp-github":
-                res = exporter.export_to_github("TwitteryBeast12/Notas", f"runbooks/session_{self.session_id}.md", self.content, token)
-                self.app.notify("Pushed to GitHub")
-            elif btn_id == "exp-notion":
-                res = exporter.export_to_notion("parent_page_id", f"Session {self.session_id}", self.content, token)
-                self.app.notify("Pushed to Notion")
+            # Use DraftManager for promotion
+            config = {
+                "github_repo": "TwitteryBeast12/Notas",
+                "github_token": token,
+                "notion_page_id": "parent_page_id",
+                "notion_token": token
+            }
+            
+            target = "local" if btn_id == "exp-local" else ("github" if btn_id == "exp-github" else "notion")
+            res = self.manager.promote_to_final(self.draft_filename, target, config)
+            
+            if res.get("status") == "error":
+                self.app.notify(f"Export failed: {res.get('message')}", severity="error")
+            else:
+                self.app.notify(f"Successfully exported to {target}")
+                
         except Exception as e:
             self.app.notify(f"Export failed: {str(e)}", severity="error")
         
         self.app.pop_screen()
 
 class NotasTUI(App):
-    TITLE = "Notas - TUI Reviewer"
+    TITLE = "Notas - Draft Reviewer"
     BINDINGS = [
         ("q", "quit", "Quit"),
-        ("e", "open_export", "Export Runbook"),
+        ("e", "open_export", "Export Draft"),
         ("esc", "show_list", "Back to List"),
     ]
 
@@ -75,61 +80,59 @@ class NotasTUI(App):
     def create_list_view(self):
         container = Vertical(id="list-view")
         list_view = ListView()
-        session_dir = os.path.expanduser("~/.notas/sessions")
-        if os.path.exists(session_dir):
-            for f in os.listdir(session_dir):
-                if f.startswith("session_") and f.endswith(".json"):
-                    sid = f.replace("session_", "").replace(".json", "")
-                    list_view.append(SessionItem(sid))
-        container.mount(Label("Select Session to Review:", id="list-title"))
+        
+        dm = DraftManager()
+        drafts = dm.list_drafts()
+        for d in drafts:
+            list_view.append(SessionItem(d['filename']))
+            
+        container.mount(Label("Select Draft to Review:", id="list-title"))
         container.mount(list_view)
         return container
 
     def create_review_view(self, hidden=True):
         container = Horizontal(id="review-view")
         container.hidden = hidden
-        logs_pane = Vertical()
-        logs_pane.mount(Label("Raw Output", id="pane-title"))
-        logs_pane.mount(Static("Loading logs...", id="logs-content"))
+        
         edit_pane = Vertical()
-        edit_pane.mount(Label("AI Draft", id="pane-title"))
+        edit_pane.mount(Label("AI Draft (Edit to modify)", id="pane-title"))
         editor = TextArea(id="editor")
         edit_pane.mount(editor)
-        container.mount(logs_pane)
+        
         container.mount(edit_pane)
         return container
 
     def on_mount(self):
-        self.query_one(ListView).on(self.handle_session_select)
+        self.dm = DraftManager()
+        self.query_one(ListView).on(self.handle_draft_select)
 
-    def handle_session_select(self, event):
-        session_id = event.item.session_id
+    def handle_draft_select(self, event):
+        filename = event.item.filename
         view = self.query_one("#review-view")
         view.hidden = False
         self.query_one("#list-view").hidden = True
         
-        interpreter = NotasInterpreter(session_id)
-        
-        # Ask user if they want AI Interpretation or just raw text
-        self.current_session_id = session_id
-        view.query_one("#logs-content").update(interpreter.load_output())
-        
-        # Default: Prompt for AI
-        self.notify("Generating AI Draft via Ollama...")
-        llm = OllamaLLM() # Defaults to llama3 on localhost:11434
-        draft = interpreter.generate_draft(llm)
-        self.query_one("#editor").load_text(draft)
+        self.current_draft = filename
+        content = self.dm.read_draft(filename)
+        self.query_one("#editor").load_text(content)
 
     def action_show_list(self):
+        # Save current editor content back to draft before leaving
+        if hasattr(self, 'current_draft'):
+            content = self.query_one("#editor").text
+            self.dm.update_draft(self.current_draft, content)
+            
         self.query_one("#review-view").hidden = True
         self.query_one("#list-view").hidden = False
 
     def action_open_export(self):
-        if hasattr(self, 'current_session_id'):
+        if hasattr(self, 'current_draft'):
+            # Ensure latest edits are saved before promoting
             content = self.query_one("#editor").text
-            self.push_screen(ExportModal(content, self.current_session_id))
+            self.dm.update_draft(self.current_draft, content)
+            self.push_screen(ExportModal(self.current_draft, self.dm))
         else:
-            self.notify("Select a session first")
+            self.notify("Select a draft first")
 
 if __name__ == "__main__":
     NotasTUI().run()
