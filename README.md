@@ -1,13 +1,13 @@
 # Notas
 
-Improve your Powershell knowledge AND documentation. Essential for documentation and training the newbies on the why and what.
+Turn terminal chaos into professional docs. Essential for runbooks, training, and knowledge sharing.
 
 ## The Core Pain
-Engineers spend hours writing docs they hate writing. Runbooks go stale, wikis are empty, and institutional knowledge lives in people's heads. The people who know the most are the least likely to document it.
+Engineers hate writing docs. Runbooks go stale, wikis stay empty, knowledge stays in heads. The people who know the most document the least.
 
-## How It Works: The Pipeline
+## How It Works: Four-Stage Pipeline
 
-Notas transforms raw terminal chaos into structured knowledge using a four-stage pipeline:
+Notas transforms raw terminal sessions into structured knowledge:
 
 ### 1. Local Capture (The Log)
 Instead of manually taking notes, you run `notas rec <session-name>`. The tool hooks into the terminal session to record every command and its corresponding output. 
