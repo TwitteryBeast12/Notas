@@ -1,0 +1,79 @@
+import React, { useState, useEffect } from 'react';
+import { Box, Text } from 'ink';
+import { readdirSync, readFileSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+import DraftList from './components/DraftList.js';
+import DraftView from './components/DraftView.js';
+
+interface Draft {
+  filename: string;
+  sessionId: string;
+  type: string;
+}
+
+const App: React.FC = () => {
+  const [view, setView] = useState<'list' | 'preview' | 'export'>('list');
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [selectedDraft, setSelectedDraft] = useState<Draft | null>(null);
+  const [draftContent, setDraftContent] = useState<string>('');
+
+  const draftsDir = join(homedir(), '.notas', 'drafts');
+
+  useEffect(() => {
+    try {
+      const files = readdirSync(draftsDir).filter(f => f.endsWith('.md'));
+      const draftList = files.map(f => {
+        const match = f.match(/session_(.+)_(.+)\.md/);
+        return {
+          filename: f,
+          sessionId: match ? match[1] : 'unknown',
+          type: match ? match[2] : 'runbook',
+        };
+      });
+      setDrafts(draftList);
+    } catch (e) {
+      // Directory doesn't exist
+    }
+  });
+
+  const handleSelect = (draft: Draft) => {
+    const content = readFileSync(join(draftsDir, draft.filename), 'utf-8');
+    setSelectedDraft(draft);
+    setDraftContent(content);
+    setView('preview');
+  };
+
+  const handleBack = () => {
+    setSelectedDraft(null);
+    setDraftContent('');
+    setView('list');
+  };
+
+  const handleExport = () => {
+    // Export logic would be called here
+    setView('export');
+  };
+
+  if (view === 'export') {
+    return (
+      <Box flexDirection="column">
+        <Text bold>🚀 Export</Text>
+        <Text>Export functionality coming soon.</Text>
+        <Text dimColor>Press ESC to go back.</Text>
+      </Box>
+    );
+  }
+
+  if (view === 'preview' && selectedDraft) {
+    return (
+      <DraftView content={draftContent} onBack={handleBack} onExport={handleExport} />
+    );
+  }
+
+  return (
+    <DraftList drafts={drafts} onSelect={handleSelect} onExit={() => process.exit(0)} />
+  );
+};
+
+export default App;

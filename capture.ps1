@@ -49,4 +49,6 @@ function Stop-NotasCapture {
     }
 }
 
-Export-ModuleMember -Function Start-NotasCapture, Stop-NotasCapture
+# Alias for convenience
+Set-Alias -Name notas-rec -Value Start-NotasCapture -Force
+Set-Alias -Name notas-stop -Value Stop-NotasCapture -Force

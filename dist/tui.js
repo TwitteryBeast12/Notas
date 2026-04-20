@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'ink';
-import { Box, Text, useInput, useApp } from 'ink';
+import React, { useState, useEffect } from 'react';
+import { Box, Text } from 'ink';
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-const DraftList = () => {
+import DraftList from './components/DraftList.js';
+import DraftView from './components/DraftView.js';
+const App = () => {
+    const [view, setView] = useState('list');
     const [drafts, setDrafts] = useState([]);
-    const [selectedIndex, setSelectedIndex] = useState(0);
     const [selectedDraft, setSelectedDraft] = useState(null);
-    const { exit } = useApp();
+    const [draftContent, setDraftContent] = useState('');
     const draftsDir = join(homedir(), '.notas', 'drafts');
     useEffect(() => {
-        if (!draftsDir)
-            return;
         try {
             const files = readdirSync(draftsDir).filter(f => f.endsWith('.md'));
             const draftList = files.map(f => {
@@ -25,51 +25,33 @@ const DraftList = () => {
             setDrafts(draftList);
         }
         catch (e) {
-            // Directory doesn't exist yet
-        }
-    }, []);
-    useInput((input, key) => {
-        if (key.escape) {
-            if (selectedDraft) {
-                setSelectedDraft(null);
-            }
-            else {
-                exit();
-            }
-        }
-        if (key.upArrow) {
-            setSelectedIndex(i => Math.max(0, i - 1));
-        }
-        if (key.downArrow) {
-            setSelectedIndex(i => Math.min(drafts.length - 1, i + 1));
-        }
-        if (key.return && drafts[selectedIndex]) {
-            const draftPath = join(draftsDir, drafts[selectedIndex].filename);
-            const content = readFileSync(draftPath, 'utf-8');
-            setSelectedDraft(content);
-        }
-        if (key.return && selectedDraft) {
-            // Export action would go here
+            // Directory doesn't exist
         }
     });
-    if (selectedDraft) {
+    const handleSelect = (draft) => {
+        const content = readFileSync(join(draftsDir, draft.filename), 'utf-8');
+        setSelectedDraft(draft);
+        setDraftContent(content);
+        setView('preview');
+    };
+    const handleBack = () => {
+        setSelectedDraft(null);
+        setDraftContent('');
+        setView('list');
+    };
+    const handleExport = () => {
+        // Export logic would be called here
+        setView('export');
+    };
+    if (view === 'export') {
         return (React.createElement(Box, { flexDirection: "column" },
-            React.createElement(Text, { bold: true }, "\uD83D\uDCC4 Draft Preview (Press ESC to go back)"),
-            React.createElement(Box, { borderStyle: "single", borderColor: "gray", paddingX: 1, marginTop: 1 },
-                React.createElement(Text, null,
-                    selectedDraft.slice(0, 500),
-                    "...")),
-            React.createElement(Box, { marginTop: 1 },
-                React.createElement(Text, { dimColor: true }, "Actions: [E] Export [ESC] Back"))));
+            React.createElement(Text, { bold: true }, "\uD83D\uDE80 Export"),
+            React.createElement(Text, null, "Export functionality coming soon."),
+            React.createElement(Text, { dimColor: true }, "Press ESC to go back.")));
     }
-    if (drafts.length === 0) {
-        return (React.createElement(Text, { dimColor: true }, "No drafts found. Run 'notas stop <session>' to create one."));
+    if (view === 'preview' && selectedDraft) {
+        return (React.createElement(DraftView, { content: draftContent, onBack: handleBack, onExport: handleExport }));
     }
-    return (React.createElement(Box, { flexDirection: "column" },
-        React.createElement(Text, { bold: true }, "\uD83D\uDCDD Notas Drafts (\u2191/\u2193 to select, Enter to view, ESC to exit)"),
-        React.createElement(Box, { marginTop: 1 }, drafts.map((draft, i) => (React.createElement(Box, { key: draft.filename, paddingY: 0 },
-            React.createElement(Text, { color: i === selectedIndex ? 'green' : 'white' },
-                i === selectedIndex ? '▶ ' : '  ',
-                draft.filename)))))));
+    return (React.createElement(DraftList, { drafts: drafts, onSelect: handleSelect, onExit: () => process.exit(0) }));
 };
-export default DraftList;
+export default App;

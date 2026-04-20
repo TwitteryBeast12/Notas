@@ -44,31 +44,132 @@ export class NotasExporter {
   async exportToNotion(title: string, content: string): Promise<any> {
     const { page_id: pageId, token } = this.config.notion;
     const url = 'https://api.notion.com/v1/pages';
+    const blocksUrl = 'https://api.notion.com/v1/blocks';
     const headers = {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
       'Notion-Version': '2022-06-28'
     };
 
-    // Parse markdown into Notion blocks (simplified for v0.2)
-    const blocks = content.split('\n\n').map(para => ({
-      object: 'block',
-      type: 'paragraph',
-      paragraph: {
-        rich_text: [{ type: 'text', text: { content: para.slice(0, 2000) } }]
-      }
-    })).slice(0, 100); // Notion API limit
+    // Parse markdown into Notion blocks
+    const blocks = this.parseMarkdownToBlocks(content);
 
-    const data = {
+    // Create page
+    const pageData = {
       parent: { page_id: pageId },
       properties: {
         title: { title: [{ text: { content: title } }] }
-      },
-      children: blocks
+      }
     };
 
-    const response = await axios.post(url, data, { headers });
-    return { success: true, url: response.data.url };
+    const pageResponse = await axios.post(url, pageData, { headers });
+    const pageIdResult = pageResponse.data.id;
+
+    // Append blocks to page
+    await axios.patch(`${blocksUrl}/${pageIdResult}/children`, { children: blocks }, { headers });
+
+    return { success: true, url: pageResponse.data.url };
+  }
+
+  private parseMarkdownToBlocks(content: string): any[] {
+    const lines = content.split('\n');
+    const blocks: any[] = [];
+    let currentList: any[] = [];
+    let inCodeBlock = false;
+    let codeLines: string[] = [];
+    let codeLanguage = '';
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Code blocks
+      if (line.startsWith('```')) {
+        if (!inCodeBlock) {
+          inCodeBlock = true;
+          codeLanguage = line.slice(3).trim();
+          codeLines = [];
+        } else {
+          blocks.push({
+            object: 'block',
+            type: 'code',
+            code: {
+              rich_text: [{ type: 'text', text: { content: codeLines.join('\n').slice(0, 2000) } }],
+              language: codeLanguage || 'plain text'
+            }
+          });
+          inCodeBlock = false;
+        }
+        continue;
+      }
+
+      if (inCodeBlock) {
+        codeLines.push(line);
+        continue;
+      }
+
+      // Headings
+      if (line.startsWith('### ')) {
+        blocks.push({
+          object: 'block',
+          type: 'heading_3',
+          heading_3: { rich_text: [{ type: 'text', text: { content: line.slice(4) } }] }
+        });
+        continue;
+      }
+      if (line.startsWith('## ')) {
+        blocks.push({
+          object: 'block',
+          type: 'heading_2',
+          heading_2: { rich_text: [{ type: 'text', text: { content: line.slice(3) } }] }
+        });
+        continue;
+      }
+      if (line.startsWith('# ')) {
+        blocks.push({
+          object: 'block',
+          type: 'heading_1',
+          heading_1: { rich_text: [{ type: 'text', text: { content: line.slice(2) } }] }
+        });
+        continue;
+      }
+
+      // Lists
+      if (line.match(/^[\-\*] /)) {
+        currentList.push({
+          type: 'bulleted_list_item',
+          bulleted_list_item: { rich_text: [{ type: 'text', text: { content: line.slice(2) } }] }
+        });
+        continue;
+      }
+      if (line.match(/^\d+\. /)) {
+        currentList.push({
+          type: 'numbered_list_item',
+          numbered_list_item: { rich_text: [{ type: 'text', text: { content: line.replace(/^\d+\. /, '') } }] }
+        });
+        continue;
+      }
+
+      // Flush list if we hit non-list item
+      if (currentList.length > 0) {
+        blocks.push(...currentList);
+        currentList = [];
+      }
+
+      // Empty lines
+      if (line.trim() === '') continue;
+
+      // Regular paragraphs
+      blocks.push({
+        object: 'block',
+        type: 'paragraph',
+        paragraph: { rich_text: [{ type: 'text', text: { content: line.slice(0, 2000) } }] }
+      });
+    }
+
+    // Flush remaining
+    if (currentList.length > 0) blocks.push(...currentList);
+
+    return blocks.slice(0, 100); // Notion API limit
   }
 
   exportLocal(filename: string, content: string): { success: boolean; path: string } {

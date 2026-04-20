@@ -13,6 +13,7 @@ export declare class NotasExporter {
     constructor(config: Config);
     exportToGithub(path: string, content: string): Promise<any>;
     exportToNotion(title: string, content: string): Promise<any>;
+    private parseMarkdownToBlocks;
     exportLocal(filename: string, content: string): {
         success: boolean;
         path: string;

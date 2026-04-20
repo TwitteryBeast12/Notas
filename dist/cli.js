@@ -65,6 +65,15 @@ program
     console.log('\nExport with: notas export <sessionId> [github|notion|local]\n');
 });
 program
+    .command('review')
+    .description('Review drafts in TUI')
+    .action(() => {
+    const { spawn } = require('child_process');
+    const path = require('path');
+    const runner = path.join(__dirname, 'tui-runner.js');
+    spawn('node', [runner], { stdio: 'inherit' });
+});
+program
     .command('view <sessionId>')
     .description('View draft content')
     .action((sessionId) => {
