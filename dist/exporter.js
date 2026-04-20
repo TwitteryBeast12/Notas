@@ -1,14 +1,18 @@
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { homedir } from 'os';
 import axios from 'axios';
 export class NotasExporter {
-    async exportToGithub(repo, path, content, token) {
+    constructor(config) {
+        this.config = config;
+    }
+    async exportToGithub(path, content) {
+        const { repo, token } = this.config.github;
         const url = `https://api.github.com/repos/${repo}/contents/${path}`;
         const headers = {
             'Authorization': `token ${token}`,
             'Accept': 'application/vnd.github.v3+json'
         };
-        // Check if file exists to get SHA for update
         let sha;
         try {
             const res = await axios.get(url, { headers });
@@ -16,42 +20,53 @@ export class NotasExporter {
                 sha = res.data.sha;
         }
         catch (e) {
-            // File doesn't exist, that's fine
+            // File doesn't exist
         }
         const data = {
-            message: 'Upload runbook via Notas',
+            message: `Upload runbook via Notas - ${new Date().toISOString().split('T')[0]}`,
             content: Buffer.from(content, 'utf-8').toString('base64'),
             sha
         };
         const response = await axios.put(url, data, { headers });
-        return response.data;
+        return { success: true, url: response.data.content.html_url };
     }
-    async exportToNotion(pageId, title, content, token) {
+    async exportToNotion(title, content) {
+        const { page_id: pageId, token } = this.config.notion;
         const url = 'https://api.notion.com/v1/pages';
         const headers = {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
             'Notion-Version': '2022-06-28'
         };
+        // Parse markdown into Notion blocks (simplified for v0.2)
+        const blocks = content.split('\n\n').map(para => ({
+            object: 'block',
+            type: 'paragraph',
+            paragraph: {
+                rich_text: [{ type: 'text', text: { content: para.slice(0, 2000) } }]
+            }
+        })).slice(0, 100); // Notion API limit
         const data = {
             parent: { page_id: pageId },
             properties: {
                 title: { title: [{ text: { content: title } }] }
             },
-            children: [
-                {
-                    object: 'block',
-                    type: 'paragraph',
-                    paragraph: { rich_text: [{ type: 'text', text: { content: content.slice(0, 2000) } }] }
-                }
-            ]
+            children: blocks
         };
         const response = await axios.post(url, data, { headers });
-        return response.data;
+        return { success: true, url: response.data.url };
     }
-    exportLocal(filepath, content) {
-        mkdirSync(join(filepath, '..'), { recursive: true });
-        writeFileSync(filepath, content, 'utf-8');
-        return { status: 'success', path: filepath };
+    exportLocal(filename, content) {
+        const outputPath = join(homedir(), '.notas', 'final', filename);
+        mkdirSync(join(outputPath, '..'), { recursive: true });
+        writeFileSync(outputPath, content, 'utf-8');
+        return { success: true, path: outputPath };
     }
+}
+export function loadConfig() {
+    const configPath = join(homedir(), '.notas', 'config.json');
+    if (!existsSync(configPath)) {
+        throw new Error('Config not found. Run "notas config" to set up.');
+    }
+    return JSON.parse(readFileSync(configPath, 'utf-8'));
 }

@@ -1,48 +1,32 @@
-# Notas PowerShell Capture Prototype
-# Purpose: Securely capture PS session activity for AI documentation.
+# Notas PowerShell Wrapper
+# Purpose: Call the notas CLI (notas.exe) for recording.
+# Requires: notas.exe installed in PATH
 
 $Global:NotasSessionActive = $false
-$Global:NotasLogPath = "$HOME\.notas\sessions"
-$Global:CurrentSessionFile = ""
+$Global:CurrentSessionId = ""
 
 function Start-NotasCapture {
+    param(
+        [string]$SessionName = $(Get-Date -Format "yyyyMMdd_HHmmss")
+    )
+    
     if ($Global:NotasSessionActive) {
         Write-Host "Notas is already capturing." -ForegroundColor Yellow
         return
     }
 
-    # Setup directories
-    if (-not (Test-Path $Global:NotasLogPath)) {
-        New-Item -ItemType Directory -Path $Global:NotasLogPath -Force | Out-Null
-    }
-
-    $SessionId = Get-Date -Format "yyyyMMdd_HHmmss"
-    $Global:CurrentSessionFile = Join-Path $Global:NotasLogPath "session_$SessionId.json"
-    $Global:NotasSessionActive = $true
-
-    # Start Transcript for output capture
-    Start-Transcript -Path (Join-Path $Global:NotasLogPath "session_$SessionId.txt") -Append
-
-    # Override Prompt to capture command input
-    $OldPrompt = $function:prompt
-    function prompt {
-        $input = Read-Host "PS $($Args[0])" # Simplified for POC
-        # In real impl, this would use a more robust hook
-        Write-Host "Capturing: $input" -ForegroundColor Gray
-        
-        # Security Scrubbing Logic
-        $scrubbed = $input -replace '(?i)(password|secret|key|token|auth)\s*=\s*.*', '$1=[REDACTED]'
-        
-        $logEntry = @{
-            timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-            command = $scrubbed
+    try {
+        $result = notas rec $SessionName 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            $Global:NotasSessionActive = $true
+            $Global:CurrentSessionId = $SessionName
+            Write-Host $result -ForegroundColor Green
+        } else {
+            Write-Host "Error starting notas: $result" -ForegroundColor Red
         }
-        $logEntry | ConvertTo-Json -Compress | Out-File -FilePath $Global:CurrentSessionFile -Append
-        
-        return "PS $($executionContext.SessionState.Path.CurrentLocation)> "
+    } catch {
+        Write-Host "notas command not found. Install from: https://github.com/TwitteryBeast12/Notas/releases" -ForegroundColor Red
     }
-
-    Write-Host "Notas capture started. Log: $Global:CurrentSessionFile" -ForegroundColor Green
 }
 
 function Stop-NotasCapture {
@@ -51,16 +35,18 @@ function Stop-NotasCapture {
         return
     }
 
-    Stop-Transcript
-    $Global:NotasSessionActive = $false
-    
-    # Restore prompt
-    function prompt {
-        return "PS $($executionContext.SessionState.Path.CurrentLocation)> "
+    try {
+        $result = notas stop $Global:CurrentSessionId 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host $result -ForegroundColor Green
+            $Global:NotasSessionActive = $false
+            $Global:CurrentSessionId = ""
+        } else {
+            Write-Host "Error stopping notas: $result" -ForegroundColor Red
+        }
+    } catch {
+        Write-Host "notas command not found." -ForegroundColor Red
     }
-
-    Write-Host "Notas capture stopped." -ForegroundColor Green
 }
 
-# Export functions for module use
 Export-ModuleMember -Function Start-NotasCapture, Stop-NotasCapture

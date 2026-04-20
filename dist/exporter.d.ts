@@ -1,8 +1,22 @@
+interface Config {
+    github: {
+        repo: string;
+        token: string;
+    };
+    notion: {
+        page_id: string;
+        token: string;
+    };
+}
 export declare class NotasExporter {
-    exportToGithub(repo: string, path: string, content: string, token: string): Promise<any>;
-    exportToNotion(pageId: string, title: string, content: string, token: string): Promise<any>;
-    exportLocal(filepath: string, content: string): {
-        status: string;
+    private config;
+    constructor(config: Config);
+    exportToGithub(path: string, content: string): Promise<any>;
+    exportToNotion(title: string, content: string): Promise<any>;
+    exportLocal(filename: string, content: string): {
+        success: boolean;
         path: string;
     };
 }
+export declare function loadConfig(): Config;
+export {};
