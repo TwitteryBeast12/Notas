@@ -6,6 +6,20 @@
 - **Distribution**: Pre-built binaries (`.exe` + Linux) via `pkg`
 - **Privacy**: All data stays local in `~/.notas/`
 
+## Completed (v0.4.0)
+- [x] Linux installer script (`install.sh`)
+- [x] TUI export functionality (fully working)
+- [x] PII scrubbing (passwords, keys, tokens, emails, IPs)
+- [x] Updated RELEASE_v0.4.md
+- [x] Binaries built and uploaded
+
+## Completed (v0.3.0)
+- [x] TUI (interactive terminal UI) with `ink`
+- [x] Notion markdown parser (headings, lists, code blocks)
+- [x] Windows installer (`install.ps1`)
+- [x] PowerShell wrapper fix (removed Export-ModuleMember error)
+- [x] Updated RUNNING.md with next steps
+
 ## Completed (v0.2.0)
 - [x] Port `interpret.py` → `src/interpreter.ts`
 - [x] Port `exporter.py` → `src/exporter.ts` (FULL implementation)
@@ -23,11 +37,12 @@
 - [x] TypeScript migration (initial)
 
 ## Open TODOs
-- [ ] Build TUI in TypeScript (replace `textual`)
-- [ ] Build Web UI (replace FastAPI)
-- [ ] Implement full export logic (GitHub/Notion APIs currently placeholder)
-- [ ] Add PII scrubbing logic to interpreter
-- [ ] Test binaries on fresh Windows/Linux machines
+- [ ] GitHub CDN propagation issue (assets upload but 404 for ~10 min)
+- [ ] Add unit tests for PII scrubber
+- [ ] TUI: Add search/filter for drafts
+- [ ] Web UI (deferred to v0.5)
+- [ ] Support for custom templates
+- [ ] Auto-commit to GitHub after export
 
 ## Architecture
 - **Capture**: `capture.ps1` calls `notas rec` / `notas stop`
@@ -36,4 +51,7 @@
 - **Storage**: `~/.notas/sessions/` (raw), `~/.notas/drafts/` (AI output)
 
 ## Release History
-- **v0.1.0** (2026-04-20): TypeScript Migration. No Python required.
+- **v0.4.0** (2026-04-20): Linux installer, TUI export, PII scrubbing
+- **v0.3.0** (2026-04-20): TUI, Notion markdown parser, Win installer
+- **v0.2.0** (2026-04-20): Full export logic, new CLI commands
+- **v0.1.0** (2026-04-20): TypeScript migration (no Python)

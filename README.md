@@ -22,10 +22,11 @@ The AI maps the interpreted steps onto a specific template (Runbook, Wiki, or RE
 - **Result**: A professional Markdown draft saved to `~/.notas/drafts/`.
 
 ### 4. Human Review & Export (The Final Touch)
-No AI doc is shipped raw. You use the **CLI** or future **TUI/Web UI** to:
+No AI doc is shipped raw. You use the **CLI** or **TUI** to:
 - Review the AI's assumptions.
 - Edit technical details or add missing context.
-- **Promote** the draft to a final destination: GitHub, Notion, or a local archive.
+- **Export** to GitHub, Notion, or local archive.
+- **PII Protection**: All drafts are auto-scrubbed of passwords, API keys, tokens, emails, and IPs.
 
 ## Getting Started
 See [RUNNING.md](RUNNING.md) for installation and execution steps.
