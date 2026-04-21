@@ -19,6 +19,12 @@ class OllamaProvider extends LLMProvider {
             return response.data.response || 'AI failed to generate content.';
         }
         catch (e) {
+            if (e.code === 'ECONNREFUSED') {
+                return 'Ollama Error: Connection refused. Is Ollama running? Try: ollama serve';
+            }
+            if (e.code === 'ETIMEDOUT') {
+                return 'Ollama Error: Request timed out. Is the model loaded?';
+            }
             return `Ollama Error: ${e.message}`;
         }
     }
@@ -133,6 +139,8 @@ export class NotasInterpreter {
             .replace(/(aws_access_key_id|aws_secret_access_key)\s*[=:]\s*\S+/gi, '$1=[REDACTED]')
             .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
             .replace(/-----BEGIN (RSA |DSA |EC )?PRIVATE KEY-----[\s\S]*?-----END (RSA |DSA |EC )?PRIVATE KEY-----/gi, '[PRIVATE KEY REDACTED]')
+            .replace(/ssh-rsa\s+[A-Za-z0-9+/=]+/gi, 'ssh-rsa [REDACTED]')
+            .replace(/(?:mongodb|postgres|mysql|redis):\/\/[^\s"]+/gi, '[CONNECTION STRING REDACTED]')
             .replace(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g, '[EMAIL REDACTED]')
             .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '[IP REDACTED]');
         return scrubbed;
