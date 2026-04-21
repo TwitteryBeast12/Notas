@@ -77,10 +77,10 @@ program
 program
   .command('review')
   .description('Review drafts in TUI')
-  .action(() => {
-    const { spawn } = require('child_process');
-    const path = require('path');
-    const runner = path.join(__dirname, 'tui-runner.js');
+  .action(async () => {
+    const { spawn } = await import('child_process');
+    const path = await import('path');
+    const runner = path.default.join(path.default.dirname(__filename), 'tui-runner.js');
     spawn('node', [runner], { stdio: 'inherit' });
   });
 
