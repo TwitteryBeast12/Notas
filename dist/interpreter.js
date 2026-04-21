@@ -70,6 +70,7 @@ class ConfigManager {
             openai: { api_key: '', model: 'gpt-4' },
             notion: { page_id: '', token: '' },
             github: { repo: '', token: '' },
+            autoExport: { enabled: false, target: 'local' },
         };
     }
     save(config) {
@@ -84,6 +85,10 @@ export class NotasInterpreter {
         this.jsonPath = join(this.baseDir, `session_${sessionId}.json`);
         this.txtPath = join(this.baseDir, `session_${sessionId}.txt`);
         this.draftsDir = join(homedir(), '.notas', 'drafts');
+        this.configManager = new ConfigManager();
+    }
+    getConfig() {
+        return this.configManager.load();
     }
     loadSession() {
         if (!existsSync(this.jsonPath))

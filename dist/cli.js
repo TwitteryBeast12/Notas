@@ -33,9 +33,59 @@ program
     try {
         const interpreter = new NotasInterpreter(sessionId);
         const draft = await interpreter.generateDraft('runbook');
+        const config = interpreter.getConfig();
         const draftPath = join(homedir(), '.notas', 'drafts', `session_${sessionId}_runbook.md`);
         console.log(`✅ Draft generated: ${draftPath}`);
-        console.log(`   Review with: notas list`);
+        // Auto-export if enabled
+        if (config.autoExport?.enabled) {
+            const target = config.autoExport.target;
+            console.log(`🚀 Auto-exporting to ${target}...`);
+            const { NotasExporter } = await import('./exporter.js');
+            const exporter = new NotasExporter(config);
+            if (target === 'local') {
+                const result = exporter.exportLocal(`session_${sessionId}_final.md`, draft);
+                console.log(`✅ Exported locally: ${result.path}`);
+            }
+            else if (target === 'github') {
+                const result = await exporter.exportToGithub(`runbooks/session_${sessionId}.md`, draft);
+                console.log(`✅ Exported to GitHub: ${result.url}`);
+            }
+            else if (target === 'notion') {
+                const result = await exporter.exportToNotion(`Session ${sessionId}`, draft);
+                console.log(`✅ Exported to Notion: ${result.url}`);
+            }
+        }
+        else {
+            console.log(`   Review with: notas list`);
+        }
+    }
+    catch (e) {
+        console.error(`❌ Error: ${e.message}`);
+    }
+});
+program
+    .command('diff <session1> <session2>')
+    .description('Compare two sessions')
+    .action(async (session1, session2) => {
+    try {
+        const { diffSessions } = await import('./utils/sessionTools.js');
+        const diff = diffSessions(session1, session2);
+        console.log(diff);
+    }
+    catch (e) {
+        console.error(`❌ Error: ${e.message}`);
+    }
+});
+program
+    .command('merge <sessions...>')
+    .description('Merge multiple sessions into one draft')
+    .option('-o, --output <name>', 'Output filename')
+    .action(async (sessions, options) => {
+    try {
+        const { mergeSessions } = await import('./utils/sessionTools.js');
+        const outputName = options.output || `merged_${Date.now()}`;
+        const outputPath = mergeSessions(sessions, outputName);
+        console.log(`✅ Merged ${sessions.length} sessions into: ${outputPath}`);
     }
     catch (e) {
         console.error(`❌ Error: ${e.message}`);

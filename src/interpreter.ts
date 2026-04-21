@@ -18,6 +18,7 @@ interface Config {
   openai: { api_key: string; model: string };
   notion: { page_id: string; token: string };
   github: { repo: string; token: string };
+  autoExport?: { enabled: boolean; target: 'github' | 'notion' | 'local' };
 }
 
 class LLMProvider {
@@ -95,6 +96,7 @@ class ConfigManager {
       openai: { api_key: '', model: 'gpt-4' },
       notion: { page_id: '', token: '' },
       github: { repo: '', token: '' },
+      autoExport: { enabled: false, target: 'local' },
     };
   }
 
@@ -110,6 +112,7 @@ export class NotasInterpreter {
   private jsonPath: string;
   private txtPath: string;
   private draftsDir: string;
+  private configManager: ConfigManager;
 
   constructor(sessionId: string, baseDir?: string) {
     this.sessionId = sessionId;
@@ -117,6 +120,11 @@ export class NotasInterpreter {
     this.jsonPath = join(this.baseDir, `session_${sessionId}.json`);
     this.txtPath = join(this.baseDir, `session_${sessionId}.txt`);
     this.draftsDir = join(homedir(), '.notas', 'drafts');
+    this.configManager = new ConfigManager();
+  }
+
+  getConfig(): Config {
+    return this.configManager.load();
   }
 
   loadSession(): CommandLog[] {
