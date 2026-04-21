@@ -1,8 +1,8 @@
 # Notas Installation Script for Windows
 # Downloads and installs the latest notas.exe
 
-Write-Host "🦀 Notas Installer" -ForegroundColor Cyan
-Write-Host "=================" -ForegroundColor Cyan
+Write-Host "Notas Installer" -ForegroundColor Cyan
+Write-Host "===============" -ForegroundColor Cyan
 
 $InstallDir = "$env:LOCALAPPDATA\Programs\Notas"
 $NotasExe = "$InstallDir\notas.exe"
@@ -10,11 +10,11 @@ $NotasExe = "$InstallDir\notas.exe"
 # Create install directory
 if (-not (Test-Path $InstallDir)) {
     New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
-    Write-Host "✅ Created install directory: $InstallDir" -ForegroundColor Green
+    Write-Host "Created install directory: $InstallDir" -ForegroundColor Green
 }
 
 # Download latest release
-Write-Host "📥 Downloading latest release..." -ForegroundColor Yellow
+Write-Host "Downloading latest release..." -ForegroundColor Yellow
 try {
     $release = Invoke-RestMethod -Uri "https://api.github.com/repos/TwitteryBeast12/Notas/releases/latest"
     $asset = $release.assets | Where-Object { $_.name -eq "notas-win.exe" }
@@ -24,9 +24,9 @@ try {
     }
     
     Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $NotasExe
-    Write-Host "✅ Downloaded notas.exe" -ForegroundColor Green
+    Write-Host "Downloaded notas.exe" -ForegroundColor Green
 } catch {
-    Write-Host "❌ Download failed: $_" -ForegroundColor Red
+    Write-Host "Download failed: $_" -ForegroundColor Red
     exit 1
 }
 
@@ -34,7 +34,7 @@ try {
 $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
 if ($currentPath -notlike "*$InstallDir*") {
     [Environment]::SetEnvironmentVariable("Path", "$currentPath;$InstallDir", "User")
-    Write-Host "✅ Added to PATH" -ForegroundColor Green
+    Write-Host "Added to PATH" -ForegroundColor Green
 }
 
 # Copy PowerShell wrapper
@@ -84,22 +84,28 @@ Set-Alias -Name notas-stop -Value Stop-NotasCapture -Force
 
 $psPath = "$env:USERPROFILE\Documents\WindowsPowerShell\notas-wrapper.ps1"
 $psWrapper | Out-File -FilePath $psPath -Encoding utf8
-Write-Host "✅ Created PowerShell wrapper: $psPath" -ForegroundColor Green
+Write-Host "Created PowerShell wrapper: $psPath" -ForegroundColor Green
 
 # Final instructions
 Write-Host ""
-Write-Host "🎉 Installation complete!" -ForegroundColor Green
+Write-Host "Installation complete!" -ForegroundColor Green
+Write-Host ""
+Write-Host "What was installed:" -ForegroundColor Cyan
+Write-Host "  - notas.exe (CLI tool)"
+Write-Host "  - PowerShell wrapper (notas-rec, notas-stop)"
+Write-Host "  - Added to PATH"
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "  1. Close and reopen PowerShell (to load PATH)"
+Write-Host "  1. CLOSE and reopen PowerShell (required for PATH to update)"
 Write-Host "  2. Run: notas --help"
-Write-Host "  3. Run: notas config (set up API keys)"
-Write-Host "  4. Record your first session:"
+Write-Host "  3. Run: notas config (creates ~/.notas/config.json)"
+Write-Host "  4. Edit config.json with your AI provider (Ollama/OpenAI)"
+Write-Host "  5. Record your first session:"
 Write-Host "     notas rec `"my-task`""
 Write-Host "     # ... do your work ..."
 Write-Host "     notas stop `"my-task`""
+Write-Host "  6. Review: notas list"
+Write-Host "  7. Export: notas export `"my-task`" local"
 Write-Host ""
-Write-Host "Or use the PowerShell wrapper:"
-Write-Host "  . $psPath"
-Write-Host "  Start-NotasCapture"
+Write-Host "Full docs: https://github.com/TwitteryBeast12/Notas/blob/main/RUNNING.md"
 Write-Host ""
