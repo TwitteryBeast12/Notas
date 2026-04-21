@@ -1,18 +1,19 @@
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, ListView, ListItem, Label, TextArea, Static, Input, Button
-from textual.containers import Horizontal, Vertical, ModalScreen
-from interpret import NotasInterpreter, OllamaLLM
+from textual.containers import Horizontal, Vertical
+from textual.screen import ModalScreen
 from draft_manager import DraftManager
 import os
+
 
 class SessionItem(ListItem):
     def __init__(self, filename: str):
         super().__init__()
         self.filename = filename
-        self.label = Label(f"Draft: {filename}")
 
     def compose(self) -> ComposeResult:
-        yield self.label
+        yield Label(f"Draft: {self.filename}")
+
 
 class ExportModal(ModalScreen):
     def __init__(self, draft_filename: str, manager: DraftManager):
@@ -31,10 +32,10 @@ class ExportModal(ModalScreen):
             id="export-modal"
         )
 
-    def on_button_pressed(self, event):
+    def on_button_pressed(self, event: Button.Pressed) -> None:
         btn_id = event.button.id
-        token = self.query_one("#token-input").value
-        
+        token = self.query_one("#token-input", Input).value
+
         if btn_id == "exp-cancel":
             self.app.pop_screen()
             return
@@ -47,92 +48,87 @@ class ExportModal(ModalScreen):
                 "notion_page_id": "parent_page_id",
                 "notion_token": token
             }
-            
             target = "local" if btn_id == "exp-local" else ("github" if btn_id == "exp-github" else "notion")
             res = self.manager.promote_to_final(self.draft_filename, target, config)
-            
             if res.get("status") == "error":
                 self.app.notify(f"Export failed: {res.get('message')}", severity="error")
             else:
                 self.app.notify(f"Successfully exported to {target}")
-                
         except Exception as e:
             self.app.notify(f"Export failed: {str(e)}", severity="error")
-        
+
         self.app.pop_screen()
+
 
 class NotasTUI(App):
     TITLE = "Notas - Draft Reviewer"
     BINDINGS = [
         ("q", "quit", "Quit"),
         ("e", "open_export", "Export Draft"),
-        ("esc", "show_list", "Back to List"),
+        ("escape", "show_list", "Back to List"),
     ]
 
     def compose(self) -> ComposeResult:
         yield Header()
-        self.main_container = Vertical()
-        self.main_container.mount(self.create_list_view())
-        self.main_container.mount(self.create_review_view(hidden=True))
-        self.main_container.mount(Footer())
-        yield self.main_container
+        yield Vertical(
+            Vertical(
+                Label("Select Draft to Review:", id="list-title"),
+                ListView(id="draft-list"),
+                id="list-view"
+            ),
+            Vertical(
+                Label("AI Draft (Edit to modify)", id="pane-title"),
+                TextArea(id="editor"),
+                id="review-view"
+            ),
+        )
+        yield Footer()
 
-    def create_list_view(self):
-        container = Vertical(id="list-view")
-        list_view = ListView()
-        
-        dm = DraftManager()
-        drafts = dm.list_drafts()
-        for d in drafts:
-            list_view.append(SessionItem(d['filename']))
-            
-        container.mount(Label("Select Draft to Review:", id="list-title"))
-        container.mount(list_view)
-        return container
-
-    def create_review_view(self, hidden=True):
-        container = Horizontal(id="review-view")
-        container.hidden = hidden
-        
-        edit_pane = Vertical()
-        edit_pane.mount(Label("AI Draft (Edit to modify)", id="pane-title"))
-        editor = TextArea(id="editor")
-        edit_pane.mount(editor)
-        
-        container.mount(edit_pane)
-        return container
-
-    def on_mount(self):
+    def on_mount(self) -> None:
         self.dm = DraftManager()
-        self.query_one(ListView).on(self.handle_draft_select)
+        self.current_draft = None
 
-    def handle_draft_select(self, event):
-        filename = event.item.filename
-        view = self.query_one("#review-view")
-        view.hidden = False
-        self.query_one("#list-view").hidden = True
-        
-        self.current_draft = filename
-        content = self.dm.read_draft(filename)
-        self.query_one("#editor").load_text(content)
+        # Populate draft list
+        draft_list = self.query_one("#draft-list", ListView)
+        drafts = self.dm.list_drafts()
+        for d in drafts:
+            draft_list.append(SessionItem(d["filename"]))
 
-    def action_show_list(self):
-        # Save current editor content back to draft before leaving
-        if hasattr(self, 'current_draft'):
-            content = self.query_one("#editor").text
+        # Hide review view initially
+        self.query_one("#review-view").display = False
+
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
+        """Handle draft selection from the list."""
+        item = event.item
+        if isinstance(item, SessionItem):
+            filename = item.filename
+            self.current_draft = filename
+            content = self.dm.read_draft(filename)
+
+            # Show review, hide list
+            self.query_one("#list-view").display = False
+            self.query_one("#review-view").display = True
+            self.query_one("#editor", TextArea).text = content
+
+    def action_show_list(self) -> None:
+        """Save current editor content back to draft before leaving."""
+        if self.current_draft:
+            content = self.query_one("#editor", TextArea).text
             self.dm.update_draft(self.current_draft, content)
-            
-        self.query_one("#review-view").hidden = True
-        self.query_one("#list-view").hidden = False
+            self.current_draft = None
 
-    def action_open_export(self):
-        if hasattr(self, 'current_draft'):
+        self.query_one("#review-view").display = False
+        self.query_one("#list-view").display = True
+
+    def action_open_export(self) -> None:
+        if self.current_draft:
             # Ensure latest edits are saved before promoting
-            content = self.query_one("#editor").text
+            content = self.query_one("#editor", TextArea).text
             self.dm.update_draft(self.current_draft, content)
             self.push_screen(ExportModal(self.current_draft, self.dm))
         else:
             self.notify("Select a draft first")
+
 
 if __name__ == "__main__":
     NotasTUI().run()

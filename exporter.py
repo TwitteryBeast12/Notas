@@ -1,10 +1,12 @@
 import os
+import base64
 import requests
 from typing import Optional
 
+
 class NotasExporter:
     """Handles pushing final runbooks to various documentation platforms."""
-    
+
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key
 
@@ -12,21 +14,20 @@ class NotasExporter:
         """Pushes a file to a GitHub repository via the Content API."""
         url = f"https://api.github.com/repos/{repo}/contents/{path}"
         headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
-        
+
         # Check if file exists to get SHA for update
         res = requests.get(url, headers=headers)
         sha = None
         if res.status_code == 200:
             sha = res.json().get("sha")
 
+        # Base64 encoding is required for content in GitHub API
         data = {
             "message": "Upload runbook via Notas",
-            "content": content.encode('utf-8').decode('utf-8'), # Ensure utf8
-            "sha": sha
+            "content": base64.b64encode(content.encode('utf-8')).decode('utf-8'),
         }
-        # Base64 encoding is required for content in GitHub API
-        import base64
-        data["content"] = base64.b64encode(content.encode('utf-8')).decode('utf-8')
+        if sha:
+            data["sha"] = sha
 
         response = requests.put(url, headers=headers, json=data)
         return response.json()
@@ -39,22 +40,21 @@ class NotasExporter:
             "Content-Type": "application/json",
             "Notion-Version": "2022-06-28"
         }
-        
+
         # Simplified Notion API structure: content as a single block for POC
         data = {
             "parent": {"page_id": page_id},
             "properties": {
-                "title": {"title": [{"text": {"content": title}}] }
+                "title": {"title": [{"text": {"content": title}}]}
             },
             "children": [
                 {
                     "object": "block",
                     "type": "paragraph",
-                    "paragraph": {"rich_text": [{"type": "text", "text": {"content": content[:2000]}}]} 
+                    "paragraph": {"rich_text": [{"type": "text", "text": {"content": content[:2000]}}]}
                 }
             ]
         }
-        
         response = requests.post(url, headers=headers, json=data)
         return response.json()
 
@@ -64,6 +64,7 @@ class NotasExporter:
         with open(filepath, "w") as f:
             f.write(content)
         return {"status": "success", "path": filepath}
+
 
 if __name__ == "__main__":
     # Simple test script

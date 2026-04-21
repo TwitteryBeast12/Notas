@@ -3,9 +3,10 @@ import json
 from typing import List, Dict, Optional
 from exporter import NotasExporter
 
+
 class DraftManager:
     """Manages the lifecycle of AI-generated drafts before final export."""
-    
+
     def __init__(self, drafts_dir: str = os.path.expanduser("~/.notas/drafts")):
         self.drafts_dir = drafts_dir
         self.exporter = NotasExporter()
@@ -14,7 +15,6 @@ class DraftManager:
         """Lists all current drafts and their metadata."""
         if not os.path.exists(self.drafts_dir):
             return []
-        
         drafts = []
         for f in os.listdir(self.drafts_dir):
             if f.endswith(".md"):
@@ -63,8 +63,9 @@ class DraftManager:
         elif target == "local":
             final_path = os.path.expanduser(f"~/.notas/final/{filename}")
             return self.exporter.export_local(final_path, content)
-        
+
         return {"status": "error", "message": "Invalid target"}
+
 
 if __name__ == "__main__":
     # Quick smoke test

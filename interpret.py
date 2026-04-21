@@ -7,11 +7,14 @@ from abc import ABC, abstractmethod
 # Noise filters: remove redundant commands
 NOISE_COMMANDS = {'ls', 'pwd', 'dir', 'clear', 'cls'}
 
+
 class LLMProvider(ABC):
     """Base class for all AI providers."""
+
     @abstractmethod
     def complete(self, prompt: str) -> str:
         pass
+
 
 class OllamaProvider(LLMProvider):
     def __init__(self, config: Dict):
@@ -19,16 +22,14 @@ class OllamaProvider(LLMProvider):
         self.url = config.get("url", "http://localhost:11434").rstrip('/')
 
     def complete(self, prompt: str) -> str:
-        try:
-            response = requests.post(
-                f"{self.url}/api/generate",
-                json={"model": self.model, "prompt": prompt, "stream": False},
-                timeout=60
-            )
-            response.raise_for_status()
-            return response.json().get("response", "AI failed to generate content.")
-        except Exception as e:
-            return f"Ollama Error: {str(e)}"
+        """Send a prompt to the Ollama API and return the response."""
+        response = requests.post(
+            f"{self.url}/api/generate",
+            json={"model": self.model, "prompt": prompt, "stream": False}
+        )
+        response.raise_for_status()
+        return response.json().get("response", "")
+
 
 class OpenAIProvider(LLMProvider):
     def __init__(self, config: Dict):
@@ -36,49 +37,48 @@ class OpenAIProvider(LLMProvider):
         self.model = config.get("model", "gpt-4")
 
     def complete(self, prompt: str) -> str:
-        try:
-            headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
-            data = {
-                "model": self.model,
-                "messages": [{"role": "user", "content": prompt}]
-            }
-            response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=data, timeout=60)
-            response.raise_for_status()
-            return response.json()['choices'][0]['message']['content']
-        except Exception as e:
-            return f"OpenAI Error: {str(e)}"
+        """Send a prompt to the OpenAI Chat Completions API."""
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}]
+        }
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers=headers,
+            json=data
+        )
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
+
 
 class ConfigManager:
     """Securely manages Notas configuration."""
+
     def __init__(self, config_path: str = os.path.expanduser("~/.notas/config.json")):
         self.path = config_path
 
     def load(self) -> Dict:
+        """Load config from disk, returning defaults if missing."""
         if not os.path.exists(self.path):
-            return self.get_defaults()
-        try:
-            with open(self.path, 'r') as f:
-                return json.load(f)
-        except:
-            return self.get_defaults()
-
-    def get_defaults(self) -> Dict:
-        return {
-            "provider": "ollama",
-            "default_ui": "tui",
-            "ollama": {"url": "http://localhost:11434", "model": "llama3"},
-            "openai": {"api_key": "", "model": "gpt-4"},
-            "anthropic": {"api_key": "", "model": "claude-3-opus"},
-            "github": {"repo": "", "token": ""},
-            "notion": {"page_id": "", "token": ""},
-        }
+            return {
+                "provider": "ollama",
+                "ollama": {"model": "llama3", "url": "http://localhost:11434"},
+                "openai": {"api_key": "", "model": "gpt-4"},
+                "default_ui": "tui"
+            }
+        with open(self.path, 'r', encoding='utf-8') as f:
+            return json.load(f)
 
     def save(self, config: Dict):
-        # Set strict permissions (Read/Write for user only)
+        """Persist config to disk."""
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
-        with open(self.path, 'w') as f:
-            json.dump(config, f, indent=4)
-        os.chmod(self.path, 0o600)
+        with open(self.path, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=2)
+
 
 class NotasInterpreter:
     def __init__(self, session_id: str, base_dir: str = os.path.expanduser("~/.notas/sessions")):
@@ -88,88 +88,77 @@ class NotasInterpreter:
         self.txt_path = os.path.join(base_dir, f"session_{session_id}.txt")
         self.drafts_dir = os.path.expanduser("~/.notas/drafts")
 
-    def load_session(self) -> List[Dict]:
-        commands = []
-        if not os.path.exists(self.json_path): return []
-        with open(self.json_path, 'r') as f:
-            for line in f:
-                try: commands.append(json.loads(line))
-                except: continue
-        return commands
+    def _load_session_data(self) -> str:
+        """Load raw session data from the text log."""
+        if os.path.exists(self.txt_path):
+            with open(self.txt_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        return ""
 
-    def load_output(self) -> str:
-        if not os.path.exists(self.txt_path): return ""
-        with open(self.txt_path, 'r') as f: return f.read()
+    def _load_past_context(self) -> str:
+        """Load previous drafts for style consistency."""
+        if not os.path.exists(self.drafts_dir):
+            return "No previous documents found."
+        drafts = [f for f in os.listdir(self.drafts_dir) if f.endswith(".md")]
+        if not drafts:
+            return "No previous documents found."
+        # Use the most recent draft as context
+        latest = sorted(drafts)[-1]
+        path = os.path.join(self.drafts_dir, latest)
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return content[:2000]  # Limit context size
 
-    def get_relevant_context(self) -> str:
-        if not os.path.exists(self.drafts_dir): return ""
-        current_cmds = " ".join([c['command'] for c in self.load_session()]).lower()
-        relevant_docs = []
-        for f in os.listdir(self.drafts_dir):
-            if f.endswith(".md"):
-                with open(os.path.join(self.drafts_dir, f), 'r') as doc:
-                    content = doc.read().lower()
-                    words = set(current_cmds.split())
-                    if any(word in content for word in words if len(word) > 4):
-                        relevant_docs.append(f"\n--- Past Document ({f}) ---\n{doc.read()}")
-        return "\n".join(relevant_docs[:2])
+    def _filter_noise(self, commands: List[str]) -> List[str]:
+        """Remove noisy/redundant commands."""
+        return [cmd for cmd in commands if cmd.strip().split()[0] not in NOISE_COMMANDS]
 
-    def clean_noise(self, commands: List[Dict]) -> List[Dict]:
-        cleaned = []
-        last_cmd = None
-        for cmd in commands:
-            c = cmd['command'].strip().split(' ')[0].lower()
-            if c in NOISE_COMMANDS and c == last_cmd: continue
-            cleaned.append(cmd)
-            last_cmd = c
-        return cleaned
+    def prepare_prompt(self, template_type: str = "runbook") -> str:
+        """Build the full LLM prompt from session data and context."""
+        raw_log = self._load_session_data()
+        past_context = self._load_past_context()
 
-    def prepare_prompt(self, template_type="runbook") -> str:
-        cmds = self.clean_noise(self.load_session())
-        output = self.load_output()
-        context = self.get_relevant_context()
-        
-        template_path = os.path.join(os.path.expanduser("~/.notas/templates"), f"{template_type}.md")
-        template_content = ""
-        if os.path.exists(template_path):
-            with open(template_path, 'r') as f: template_content = f.read()
+        # Parse commands from the log (lines starting with timestamp)
+        lines = raw_log.strip().split("\n")
+        commands = [l for l in lines if l.startswith("[")]
+        commands = self._filter_noise(commands)
+        command_text = "\n".join(commands) if commands else "(no commands captured)"
 
-        cmd_sequence = "\n".join([f"[{c['timestamp']}] {c['command']}" for c in cmds])
-        
-        prompt = f"""
-# ROLE: Expert Technical Writer & SRE
-# TASK: Transform raw terminal logs into a professional document.
+        prompt = f"""## ROLE: Expert Technical Writer & SRE
+## TASK: Transform raw terminal logs into a professional document.
 
-## CONTEXT (Knowledge Graph)
+### CONTEXT (Knowledge Graph)
 Use these past documents for style and technical consistency:
-{context}
+{past_context}
 
-## TEMPLATE TO FOLLOW
-{template_content}
+### TEMPLATE TO FOLLOW
+Type: {template_type}
 
-## INPUT DATA
-### Command Sequence:
-{cmd_sequence}
+### INPUT DATA
+#### Command Sequence:
+{command_text}
 
-### Raw Output Log:
-{output}
+#### Raw Output Log:
+{raw_log[:3000]}
 
-## REQUIREMENTS
-1. Identify the overarching goal.
-2. Group related commands into logical "Steps".
-3. Maintain consistency with provided Past Context.
-4. Format exactly as per the template.
+### REQUIREMENTS
+- Identify the overarching goal.
+- Group related commands into logical "Steps".
+- Maintain consistency with provided Past Context.
+- Format exactly as per the template.
 """
         return prompt
 
-    def generate_draft(self, provider: LLMProvider, template_type="runbook"):
+    def generate_draft(self, provider: LLMProvider, template_type: str = "runbook") -> str:
+        """Generate an AI draft and save it to the drafts directory."""
         prompt = self.prepare_prompt(template_type)
         draft_content = provider.complete(prompt)
-        
-        # Auto-save draft to disk for persistence
+
+        # Save draft to disk
         os.makedirs(self.drafts_dir, exist_ok=True)
-        draft_path = os.path.join(self.drafts_dir, f"session_{self.session_id}_{template_type}.md")
+        draft_filename = f"draft_{self.session_id}.md"
+        draft_path = os.path.join(self.drafts_dir, draft_filename)
         with open(draft_path, 'w', encoding='utf-8') as f:
             f.write(draft_content)
-            
-        return draft_content
+
+        return draft_path

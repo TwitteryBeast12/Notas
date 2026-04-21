@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 import os
-from interpret import NotasInterpreter, OllamaProvider, ConfigManager
+from interpret import NotasInterpreter, OllamaProvider, OpenAIProvider, ConfigManager
 from draft_manager import DraftManager
 
 app = FastAPI()
@@ -15,11 +15,10 @@ draft_mgr = DraftManager()
 config = config_mgr.load()
 provider_type = config.get("provider", "ollama")
 if provider_type == "ollama":
-    llm = OllamaProvider(config["ollama"])
+    llm = OllamaProvider(config.get("ollama", {}))
 else:
-    # Fallback or other providers
-    from interpret import OpenAIProvider
     llm = OpenAIProvider(config.get("openai", {}))
+
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
@@ -27,26 +26,22 @@ async def index(request: Request):
     drafts = draft_mgr.list_drafts()
     return templates.TemplateResponse("index.html", {"request": request, "drafts": drafts})
 
-@app.get("/review/{filename}", response_class=HTMLResponse)
+
+@app.get("/review/", response_class=HTMLResponse)
 async def review(request: Request, filename: str):
     draft_content = draft_mgr.read_draft(filename)
-    
-    # Try to find associated session logs for context
-    session_id = filename.split('_')[1].replace(".md", "") if 'session' in filename else "unknown"
-    interpreter = NotasInterpreter(session_id)
-    raw_logs = interpreter.load_output()
-    
     return templates.TemplateResponse("review.html", {
-        "request": request, 
-        "filename": filename, 
-        "draft": draft_content, 
-        "raw_logs": raw_logs
+        "request": request,
+        "filename": filename,
+        "content": draft_content
     })
+
 
 @app.post("/save")
 async def save_draft(filename: str = Form(...), content: str = Form(...)):
     res = draft_mgr.update_draft(filename, content)
     return JSONResponse(content=res)
+
 
 @app.post("/export")
 async def export_draft(filename: str = Form(...), target: str = Form(...), token: str = Form(None)):
@@ -58,9 +53,9 @@ async def export_draft(filename: str = Form(...), target: str = Form(...), token
         "notion_page_id": config.get("notion", {}).get("page_id", "parent_page_id"),
         "notion_token": token or config.get("notion", {}).get("token", ""),
     }
-    
     res = draft_mgr.promote_to_final(filename, target, export_config)
     return JSONResponse(content=res)
+
 
 if __name__ == "__main__":
     import uvicorn
