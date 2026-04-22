@@ -80,22 +80,40 @@ function Stop-NotasCapture {
         if (Test-Path $Global:NotasLockFile) {
             $session = Get-Content $Global:NotasLockFile -Raw | ConvertFrom-Json
             Remove-Item $Global:NotasLockFile -Force
+
+            $elapsed = (Get-Date) - [datetime]$session.started_at
+
+            Write-Host ""
             Write-Host "Notas: Capture stopped." -ForegroundColor Green
-            Write-Host "  Session   : $($session.session_id)" -ForegroundColor Gray
-            Write-Host "  Log       : $($session.log_file)" -ForegroundColor Gray
-            Write-Host "  Transcript: $($session.transcript)" -ForegroundColor Gray
+            Write-Host ""
+            Write-Host "  Session    : $($session.session_id)" -ForegroundColor Cyan
+            Write-Host "  Duration   : $($elapsed.ToString('hh\:mm\:ss'))" -ForegroundColor Cyan
+            Write-Host ""
+            Write-Host "  Saved files:" -ForegroundColor White
+            Write-Host "    JSON log   : $($session.log_file)" -ForegroundColor Gray
+            Write-Host "    Transcript : $($session.transcript)" -ForegroundColor Gray
+            Write-Host "    Directory  : $Global:NotasLogPath" -ForegroundColor Gray
+            Write-Host ""
         } else {
             Write-Host "Notas: Capture stopped." -ForegroundColor Green
         }
         return
     }
 
-    # Called without an active in-memory session (e.g. stale lock file)
     if (Test-Path $Global:NotasLockFile) {
         $session = Get-Content $Global:NotasLockFile -Raw | ConvertFrom-Json
         Remove-Item $Global:NotasLockFile -Force
+
+        Write-Host ""
         Write-Host "Notas: Cleaned up stale session." -ForegroundColor Green
-        Write-Host "  Session   : $($session.session_id)" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "  Session    : $($session.session_id)" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  Saved files:" -ForegroundColor White
+        Write-Host "    JSON log   : $($session.log_file)" -ForegroundColor Gray
+        Write-Host "    Transcript : $($session.transcript)" -ForegroundColor Gray
+        Write-Host "    Directory  : $Global:NotasLogPath" -ForegroundColor Gray
+        Write-Host ""
     } else {
         Write-Host "Notas: Nothing is recording." -ForegroundColor Yellow
     }
@@ -124,16 +142,37 @@ function Get-NotasSessions {
         Write-Host "No sessions found." -ForegroundColor Yellow
         return
     }
-    $files = Get-ChildItem $Global:NotasLogPath -Filter "*.json" | Sort-Object LastWriteTime -Descending
-    if ($files.Count -eq 0) {
+
+    $jsonFiles = Get-ChildItem $Global:NotasLogPath -Filter "*.json" | Sort-Object LastWriteTime -Descending
+
+    if ($jsonFiles.Count -eq 0) {
         Write-Host "No sessions found." -ForegroundColor Yellow
         return
     }
+
+    Write-Host ""
     Write-Host "Recorded sessions:" -ForegroundColor Cyan
-    foreach ($f in $files) {
-        $size = "{0:N1} KB" -f ($f.Length / 1KB)
-        Write-Host "  $($f.LastWriteTime.ToString('yyyy-MM-dd HH:mm'))  $size  $($f.Name)" -ForegroundColor Gray
+    Write-Host ""
+
+    $index = 1
+    foreach ($f in $jsonFiles) {
+        $baseName   = $f.BaseName
+        $txtFile    = Join-Path $Global:NotasLogPath "$baseName.txt"
+        $jsonSize   = "{0:N1} KB" -f ($f.Length / 1KB)
+        $txtExists  = Test-Path $txtFile
+        $txtSize    = if ($txtExists) { "{0:N1} KB" -f ((Get-Item $txtFile).Length / 1KB) } else { "N/A" }
+
+        Write-Host "  [$index] $($f.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'))" -ForegroundColor White
+        Write-Host "      JSON log   : $($f.FullName)  ($jsonSize)" -ForegroundColor Gray
+        if ($txtExists) {
+            Write-Host "      Transcript : $txtFile  ($txtSize)" -ForegroundColor Gray
+        }
+        Write-Host ""
+        $index++
     }
+
+    Write-Host "  Directory: $Global:NotasLogPath" -ForegroundColor DarkGray
+    Write-Host ""
 }
 
 # --- Main entry point: the 'notas' command ---
@@ -147,7 +186,7 @@ function notas {
     )
 
     switch ($Command) {
-        "rec"      {
+        "start"    {
             if ($Rest) { Start-NotasCapture -SessionName ($Rest[0]) }
             else       { Start-NotasCapture }
         }
@@ -158,7 +197,7 @@ function notas {
             Write-Host ""
             Write-Host "Notas - PowerShell Session Capture" -ForegroundColor Cyan
             Write-Host ""
-            Write-Host "  notas rec [name]    Start recording (optional session name)"
+            Write-Host "  notas start [name]  Start recording (optional session name)"
             Write-Host "  notas stop          Stop recording"
             Write-Host "  notas status        Show current recording status"
             Write-Host "  notas list          List all recorded sessions"
