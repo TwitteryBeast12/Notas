@@ -29,5 +29,16 @@ No AI doc is shipped raw. You use the **CLI** or **TUI** to:
 - **PII Protection**: All drafts are auto-scrubbed of passwords, API keys, tokens, emails, and IPs.
 
 ## Getting Started
-See [RUNNING.md](RUNNING.md) for installation and execution steps.
+
+**Quick install (Windows):**
+```powershell
+irm https://raw.githubusercontent.com/TwitteryBeast12/Notas/main/install.ps1 | iex
+```
+
+**Quick install (Linux):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/TwitteryBeast12/Notas/main/install.sh | bash
+```
+
+See [QUICKSTART.md](QUICKSTART.md) for full installation and usage guide.
 
