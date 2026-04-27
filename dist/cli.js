@@ -8,7 +8,7 @@ import { NotasExporter, loadConfig } from './exporter.js';
 program
     .name('notas')
     .description('Terminal activity to structured documentation')
-    .version('0.2.0');
+    .version('0.5.0');
 program
     .command('rec <sessionId>')
     .description('Start recording a terminal session')
