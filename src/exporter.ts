@@ -173,8 +173,9 @@ export class NotasExporter {
   }
 
   exportLocal(filename: string, content: string): { success: boolean; path: string } {
-    const outputPath = join(homedir(), '.notas', 'final', filename);
-    mkdirSync(join(outputPath, '..'), { recursive: true });
+    const finalDir = join(homedir(), '.notas', 'final');
+    mkdirSync(finalDir, { recursive: true });
+    const outputPath = join(finalDir, filename);
     writeFileSync(outputPath, content, 'utf-8');
     return { success: true, path: outputPath };
   }

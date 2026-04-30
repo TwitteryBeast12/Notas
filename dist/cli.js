@@ -149,20 +149,17 @@ program
     const content = readFileSync(draftPath, 'utf-8');
     const targetPlatform = target || 'local';
     try {
+        const config = loadConfig();
+        const exporter = new NotasExporter(config);
         if (targetPlatform === 'local') {
-            const exporter = new NotasExporter({ github: { repo: '', token: '' }, notion: { page_id: '', token: '' } });
             const result = exporter.exportLocal(`session_${sessionId}_final.md`, content);
             console.log(`✅ Exported locally: ${result.path}`);
         }
         else if (targetPlatform === 'github') {
-            const config = loadConfig();
-            const exporter = new NotasExporter(config);
             const result = await exporter.exportToGithub(`runbooks/session_${sessionId}.md`, content);
             console.log(`✅ Exported to GitHub: ${result.url}`);
         }
         else if (targetPlatform === 'notion') {
-            const config = loadConfig();
-            const exporter = new NotasExporter(config);
             const result = await exporter.exportToNotion(`Session ${sessionId}`, content);
             console.log(`✅ Exported to Notion: ${result.url}`);
         }

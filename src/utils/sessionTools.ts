@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 
@@ -8,14 +8,22 @@ interface SessionData {
 
 export function loadSession(sessionId: string): SessionData {
   const jsonPath = join(homedir(), '.notas', 'sessions', `session_${sessionId}.json`);
+  if (!existsSync(jsonPath)) {
+    throw new Error(`Session not found: ${sessionId}`);
+  }
   const content = readFileSync(jsonPath, 'utf-8');
   const commands = content.split('\n').filter(line => line.trim()).map(line => JSON.parse(line));
   return { commands };
 }
 
 export function diffSessions(session1: string, session2: string): string {
-  const s1 = loadSession(session1);
-  const s2 = loadSession(session2);
+  let s1: SessionData, s2: SessionData;
+  try {
+    s1 = loadSession(session1);
+    s2 = loadSession(session2);
+  } catch (e: any) {
+    return `Error: ${e.message}`;
+  }
   
   const lines: string[] = [];
   lines.push(`# Session Diff: ${session1} vs ${session2}\n`);
@@ -51,12 +59,16 @@ export function diffSessions(session1: string, session2: string): string {
 export function mergeSessions(sessionIds: string[], outputName: string): string {
   const allCommands: Array<{ command: string; output: string; timestamp: string; session: string }> = [];
   
-  sessionIds.forEach(id => {
-    const session = loadSession(id);
-    session.commands.forEach(c => {
-      allCommands.push({ ...c, session: id });
-    });
-  });
+  for (const id of sessionIds) {
+    try {
+      const session = loadSession(id);
+      session.commands.forEach(c => {
+        allCommands.push({ ...c, session: id });
+      });
+    } catch (e: any) {
+      throw new Error(`Failed to load session '${id}': ${e.message}`);
+    }
+  }
   
   // Sort by timestamp
   allCommands.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());

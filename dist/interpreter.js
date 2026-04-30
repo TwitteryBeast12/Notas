@@ -137,7 +137,6 @@ export class NotasInterpreter {
         return cleaned;
     }
     scrubPII(text) {
-        // Redact common secrets
         let scrubbed = text
             .replace(/(password|passwd|pwd)\s*[=:]\s*\S+/gi, '$1=[REDACTED]')
             .replace(/(secret|api_key|apikey|token|auth)\s*[=:]\s*\S+/gi, '$1=[REDACTED]')
@@ -147,7 +146,9 @@ export class NotasInterpreter {
             .replace(/ssh-rsa\s+[A-Za-z0-9+/=]+/gi, 'ssh-rsa [REDACTED]')
             .replace(/(?:mongodb|postgres|mysql|redis):\/\/[^\s"]+/gi, '[CONNECTION STRING REDACTED]')
             .replace(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g, '[EMAIL REDACTED]')
-            .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '[IP REDACTED]');
+            .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '[IP REDACTED]')
+            .replace(/export\s+[A-Z_][A-Z0-9_]*=\S+/gi, 'export [VAR]=[REDACTED]')
+            .replace(/[A-Za-z0-9+/]{40,}={0,2}/g, '[BASE64 REDACTED]');
         return scrubbed;
     }
     preparePrompt(templateType = 'runbook') {
