@@ -1,12 +1,20 @@
 # Notas Development Progress
 
 ## Current Status
-- **Runtime**: TypeScript/Node.js (v0.1.0)
+- **Runtime**: TypeScript/Node.js (v0.5.1)
 - **Python**: Removed entirely
 - **Distribution**: Pre-built binaries (`.exe` + Linux) via `pkg`
 - **Privacy**: All data stays local in `~/.notas/`
 
-## Completed (v0.4.0)
+## Completed (v0.5.1)
+- [x] Fix exportLocal path bug (directory creation)
+- [x] Add error handling to diff/merge commands
+- [x] Enhanced PII scrubber (env vars, base64 strings)
+- [x] Fix config loading consistency in export command
+- [x] Updated RELEASE_v0.5.1.md
+- [x] Binaries built and uploaded to GitHub Releases
+
+## Completed (v0.5.0)
 - [x] Linux installer script (`install.sh`)
 - [x] TUI export functionality (fully working)
 - [x] PII scrubbing (passwords, keys, tokens, emails, IPs)
@@ -40,9 +48,10 @@
 - [ ] GitHub CDN propagation issue (assets upload but 404 for ~10 min)
 - [ ] Add unit tests for PII scrubber
 - [ ] TUI: Add search/filter for drafts
-- [ ] Web UI (deferred to v0.5)
+- [ ] Web UI (deferred to v0.6)
 - [ ] Support for custom templates
 - [ ] Auto-commit to GitHub after export
+- [ ] Consider Git LFS for binaries >50MB
 
 ## Architecture
 - **Capture**: `capture.ps1` calls `notas rec` / `notas stop`
@@ -51,7 +60,6 @@
 - **Storage**: `~/.notas/sessions/` (raw), `~/.notas/drafts/` (AI output)
 
 ## Release History
+- **v0.5.1** (2026-04-30): Bugfix - export path, error handling, PII scrubber
+- **v0.5.0** (2026-04-20): Auto-export, session diff/merge, docs
 - **v0.4.0** (2026-04-20): Linux installer, TUI export, PII scrubbing
-- **v0.3.0** (2026-04-20): TUI, Notion markdown parser, Win installer
-- **v0.2.0** (2026-04-20): Full export logic, new CLI commands
-- **v0.1.0** (2026-04-20): TypeScript migration (no Python)

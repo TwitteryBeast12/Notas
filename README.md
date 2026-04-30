@@ -40,5 +40,7 @@ irm https://raw.githubusercontent.com/TwitteryBeast12/Notas/main/install.ps1 | i
 curl -fsSL https://raw.githubusercontent.com/TwitteryBeast12/Notas/main/install.sh | bash
 ```
 
+**Latest release:** v0.5.1 - [Release Notes](RELEASE_v0.5.1.md)
+
 See [QUICKSTART.md](QUICKSTART.md) for full installation and usage guide.
 
