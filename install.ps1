@@ -86,26 +86,40 @@ $psPath = "$env:USERPROFILE\Documents\WindowsPowerShell\notas-wrapper.ps1"
 $psWrapper | Out-File -FilePath $psPath -Encoding utf8
 Write-Host "Created PowerShell wrapper: $psPath" -ForegroundColor Green
 
+# Verify installation
+Write-Host ""
+Write-Host "Verifying installation..." -ForegroundColor Yellow
+try {
+    $env:Path = "$env:Path;$InstallDir"
+    $version = & "$NotasExe" --version 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "✅ Verification successful: $version" -ForegroundColor Green
+    } else {
+        throw "Command failed"
+    }
+} catch {
+    Write-Host "⚠️  Verification failed - notas.exe may not be executable" -ForegroundColor Yellow
+    Write-Host "   Try running: & '$NotasExe' --help" -ForegroundColor Yellow
+}
+
 # Final instructions
 Write-Host ""
 Write-Host "Installation complete!" -ForegroundColor Green
 Write-Host ""
 Write-Host "What was installed:" -ForegroundColor Cyan
-Write-Host "  - notas.exe (CLI tool)"
+Write-Host "  - notas.exe (CLI tool) v$($version -replace 'notas-cli ', '')"
 Write-Host "  - PowerShell wrapper (notas-rec, notas-stop)"
 Write-Host "  - Added to PATH"
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "  1. CLOSE and reopen PowerShell (required for PATH to update)"
-Write-Host "  2. Run: notas --help"
-Write-Host "  3. Run: notas config (creates ~/.notas/config.json)"
-Write-Host "  4. Edit config.json with your AI provider (Ollama/OpenAI)"
-Write-Host "  5. Record your first session:"
+Write-Host "  1. Run: notas config (creates ~/.notas/config.json)"
+Write-Host "  2. Edit config.json with your AI provider (Ollama/OpenAI)"
+Write-Host "  3. Record your first session:"
 Write-Host "     notas rec `"my-task`""
 Write-Host "     # ... do your work ..."
 Write-Host "     notas stop `"my-task`""
-Write-Host "  6. Review: notas list"
-Write-Host "  7. Export: notas export `"my-task`" local"
+Write-Host "  4. Review: notas list"
+Write-Host "  5. Export: notas export `"my-task`" local"
 Write-Host ""
-Write-Host "Full docs: https://github.com/TwitteryBeast12/Notas/blob/main/RUNNING.md"
+Write-Host "Full docs: https://github.com/TwitteryBeast12/Notas" -ForegroundColor Cyan
 Write-Host ""

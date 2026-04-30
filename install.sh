@@ -51,14 +51,24 @@ fi
 ## Create config directory
 mkdir -p "$HOME/.notas"
 
+## Verify installation
+echo ""
+echo "Verifying installation..."
+if "$NOTAS_BIN" --version 2>/dev/null; then
+  VERSION=$("$NOTAS_BIN" --version 2>/dev/null | head -1)
+  echo "✅ Verification successful: $VERSION"
+else
+  echo "⚠️  Verification failed - binary may not be executable"
+  echo "   Try running: $NOTAS_BIN --help"
+fi
+
 ## Final instructions
 echo ""
 echo "🎉 Installation complete!"
 echo ""
 echo "Next steps:"
-echo "  1. Run: notas --help"
-echo "  2. Run: notas config (set up API keys)"
-echo "  3. Record your first session:"
+echo "  1. Run: notas config (set up API keys)"
+echo "  2. Record your first session:"
 echo '     notas rec "my-task"'
 echo "     # ... do your work ..."
 echo '     notas stop "my-task"'
@@ -66,3 +76,5 @@ echo ""
 echo "Interactive TUI:"
 echo "  notas review"
 echo ""
+echo "Full docs: https://github.com/TwitteryBeast12/Notas"
+
