@@ -13,6 +13,7 @@
 - [x] Fix config loading consistency in export command
 - [x] Updated RELEASE_v0.5.1.md
 - [x] Binaries built and uploaded to GitHub Releases
+- [x] Installers: add verification step, show version on success, simplify next steps
 
 ## Completed (v0.5.0)
 - [x] Linux installer script (`install.sh`)
