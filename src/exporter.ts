@@ -3,9 +3,12 @@ import { join } from 'path';
 import { homedir } from 'os';
 import axios from 'axios';
 
+import { PluginConfig } from './plugin.js';
+
 interface Config {
   github: { repo: string; token: string };
   notion: { page_id: string; token: string };
+  plugins?: Record<string, PluginConfig>;
 }
 
 export class NotasExporter {

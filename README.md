@@ -40,7 +40,9 @@ irm https://raw.githubusercontent.com/TwitteryBeast12/Notas/main/install.ps1 | i
 curl -fsSL https://raw.githubusercontent.com/TwitteryBeast12/Notas/main/install.sh | bash
 ```
 
-**Latest release:** v0.5.1 - [Release Notes](RELEASE_v0.5.1.md)
+**Latest release:** v0.6.0 - [Release Notes](RELEASE_v0.6.0.md)
+
+**New:** Plugin system - build custom exporters for Confluence, GitLab, S3, etc. See [PLUGIN_TEMPLATE.md](PLUGIN_TEMPLATE.md).
 
 See [QUICKSTART.md](QUICKSTART.md) for full installation and usage guide.
 

@@ -1,3 +1,4 @@
+import { PluginConfig } from './plugin.js';
 interface Config {
     github: {
         repo: string;
@@ -7,6 +8,7 @@ interface Config {
         page_id: string;
         token: string;
     };
+    plugins?: Record<string, PluginConfig>;
 }
 export declare class NotasExporter {
     private config;

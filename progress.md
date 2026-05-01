@@ -1,10 +1,19 @@
 # Notas Development Progress
 
 ## Current Status
-- **Runtime**: TypeScript/Node.js (v0.5.1)
+- **Runtime**: TypeScript/Node.js (v0.6.0)
 - **Python**: Removed entirely
 - **Distribution**: Pre-built binaries (`.exe` + Linux) via `pkg`
 - **Privacy**: All data stays local in `~/.notas/`
+
+## Completed (v0.6.0)
+- [x] Plugin architecture foundation (`plugin.ts`)
+- [x] Plugin loader with dynamic imports
+- [x] New `notas plugins` command
+- [x] Updated `notas export` to support plugins
+- [x] Config schema extended with `plugins` field
+- [x] PLUGIN_TEMPLATE.md with Confluence example
+- [x] Updated RELEASE_v0.6.0.md
 
 ## Completed (v0.5.1)
 - [x] Fix exportLocal path bug (directory creation)
@@ -61,6 +70,7 @@
 - **Storage**: `~/.notas/sessions/` (raw), `~/.notas/drafts/` (AI output)
 
 ## Release History
+- **v0.6.0** (2026-04-30): Plugin system - community exporters
 - **v0.5.1** (2026-04-30): Bugfix - export path, error handling, PII scrubber
 - **v0.5.0** (2026-04-20): Auto-export, session diff/merge, docs
 - **v0.4.0** (2026-04-20): Linux installer, TUI export, PII scrubbing

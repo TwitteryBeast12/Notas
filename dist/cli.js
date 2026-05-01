@@ -5,10 +5,11 @@ import { homedir } from 'os';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'fs';
 import { NotasInterpreter } from './interpreter.js';
 import { NotasExporter, loadConfig } from './exporter.js';
+import { PluginManager } from './plugin.js';
 program
     .name('notas')
     .description('Terminal activity to structured documentation')
-    .version('0.5.0');
+    .version('0.6.0');
 program
     .command('rec <sessionId>')
     .description('Start recording a terminal session')
@@ -139,7 +140,7 @@ program
 });
 program
     .command('export <sessionId> [target]')
-    .description('Export draft to github/notion/local')
+    .description('Export draft to github/notion/local or plugin')
     .action(async (sessionId, target) => {
     const draftPath = join(homedir(), '.notas', 'drafts', `session_${sessionId}_runbook.md`);
     if (!existsSync(draftPath)) {
@@ -150,6 +151,25 @@ program
     const targetPlatform = target || 'local';
     try {
         const config = loadConfig();
+        // Check if target is a plugin
+        if (config.plugins && config.plugins[targetPlatform]) {
+            const pluginConfig = config.plugins[targetPlatform];
+            if (!pluginConfig.enabled) {
+                console.error(`❌ Plugin '${targetPlatform}' is disabled in config`);
+                return;
+            }
+            const pluginManager = new PluginManager();
+            await pluginManager.loadPlugins();
+            const result = await pluginManager.export(targetPlatform, targetPlatform, content, pluginConfig);
+            if (result.success) {
+                console.log(`✅ Exported via ${targetPlatform}: ${result.url || result.path || result.message}`);
+            }
+            else {
+                console.error(`❌ Export failed: ${result.message}`);
+            }
+            return;
+        }
+        // Built-in exporters
         const exporter = new NotasExporter(config);
         if (targetPlatform === 'local') {
             const result = exporter.exportLocal(`session_${sessionId}_final.md`, content);
@@ -164,7 +184,11 @@ program
             console.log(`✅ Exported to Notion: ${result.url}`);
         }
         else {
-            console.error(`❌ Unknown target: ${targetPlatform}. Use: github, notion, local`);
+            console.error(`❌ Unknown target: ${targetPlatform}. Use: github, notion, local or a plugin name`);
+            const pluginManager = new PluginManager();
+            await pluginManager.loadPlugins();
+            const plugins = pluginManager.listPlugins();
+            console.log(`   Installed plugins: ${plugins.length > 0 ? plugins.join(', ') : 'none'}`);
         }
     }
     catch (e) {
@@ -183,6 +207,7 @@ program
             ollama: { url: 'http://localhost:11434', model: 'llama3' },
             github: { repo: '', token: '' },
             notion: { page_id: '', token: '' },
+            plugins: {},
         };
         writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
         console.log(`✅ Config created: ${configPath}`);
@@ -191,6 +216,31 @@ program
     else {
         console.log(`📄 Config exists: ${configPath}`);
         console.log(readFileSync(configPath, 'utf-8'));
+    }
+});
+program
+    .command('plugins')
+    .description('List installed plugins')
+    .action(async () => {
+    const pluginManager = new PluginManager();
+    await pluginManager.loadPlugins();
+    const plugins = pluginManager.listPlugins();
+    if (plugins.length === 0) {
+        console.log('No plugins installed.');
+        console.log('');
+        console.log('Install plugins with:');
+        console.log('  npm install -g @notas/plugin-<name>');
+        console.log('');
+        console.log('Available plugins: https://www.npmjs.com/search?q=@notas%2Fplugin');
+    }
+    else {
+        console.log('');
+        console.log('🔌 Installed Plugins:');
+        console.log('');
+        plugins.forEach(p => console.log(`  - ${p}`));
+        console.log('');
+        console.log('Use with: notas export <session> <plugin-name>');
+        console.log('');
     }
 });
 program.parse();
