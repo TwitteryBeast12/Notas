@@ -3,6 +3,7 @@ import { program } from 'commander';
 import { join } from 'path';
 import { homedir } from 'os';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'fs';
+import { execSync } from 'child_process';
 import { NotasInterpreter } from './interpreter.js';
 import { NotasExporter, loadConfig } from './exporter.js';
 import { PluginManager, PluginConfig } from './plugin.js';
@@ -24,6 +25,16 @@ program
     writeFileSync(jsonPath, '', 'utf-8');
     writeFileSync(txtPath, '', 'utf-8');
     
+    try {
+      const cmd = process.platform === 'win32' 
+        ? `powershell.exe -File capture.ps1 -Start` 
+        : `source ~/.notas/capture_bash.sh`;
+      
+      execSync(cmd, { shell: process.platform === 'win32' ? undefined : '/bin/bash', stdio: 'inherit' });
+    } catch (e) {
+      console.warn(`⚠️  Warning: Could not trigger capture script. Please ensure it is installed.`);
+    }
+
     console.log(`📝 Recording started: session_${sessionId}`);
     console.log(`   Commands: ${jsonPath}`);
     console.log(`   Output: ${txtPath}`);
@@ -35,6 +46,17 @@ program
   .description('Stop recording and generate draft')
   .action(async (sessionId: string) => {
     console.log(`⏹️  Recording stopped: session_${sessionId}`);
+    
+    try {
+      const cmd = process.platform === 'win32' 
+        ? `powershell.exe -File capture.ps1 -Stop` 
+        : `source ~/.notas/capture_bash.sh && stop_notas_capture`;
+      
+      execSync(cmd, { shell: process.platform === 'win32' ? undefined : '/bin/bash', stdio: 'inherit' });
+    } catch (e) {
+      console.warn(`⚠️  Warning: Could not trigger stop script.`);
+    }
+
     console.log(`🤖 Generating draft...`);
     
     try {
