@@ -17,7 +17,7 @@ Instead of manually taking notes, you run `notas rec <session-name>`. The tool h
 ### 2. AI Interpretation 
 Once stopped (`notas stop <session-name>`), the raw logs are fed into a local LLM (via Ollama) or a cloud provider. The AI doesn't just transcribe; it **interprets**. It looks at the sequence of commands to deduce the *intent*—turning a series of `ipconfig` and `netstat` calls into a "Network Troubleshooting Step."
 
-### 3. Draft Generation (The Template)
+### 3. Draft Generation 
 The AI maps the interpreted steps onto a specific template (Runbook, Wiki, or README). It checks your previous documents to maintain a consistent technical style and terminology.
 - **Result**: A professional Markdown draft saved to `~/.notas/drafts/`.
 
