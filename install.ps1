@@ -4,6 +4,10 @@
 Write-Host "Notas Installer" -ForegroundColor Cyan
 Write-Host "===============" -ForegroundColor Cyan
 
+# Prompt for GitHub PAT (required for private repo)
+$pat = Read-Host "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"
+$headers = @{ Authorization = "token $pat" }
+
 $InstallDir = "$env:LOCALAPPDATA\Programs\Notas"
 $NotasExe = "$InstallDir\notas.exe"
 
@@ -16,14 +20,14 @@ if (-not (Test-Path $InstallDir)) {
 # Download latest release
 Write-Host "Downloading latest release..." -ForegroundColor Yellow
 try {
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/TwitteryBeast12/Notas/releases/latest"
+    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/TwitteryBeast12/Notas/releases/latest" -Headers $headers
     $asset = $release.assets | Where-Object { $_.name -eq "notas-win.exe" }
     
     if (-not $asset) {
         throw "notas-win.exe not found in latest release"
     }
     
-    Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $NotasExe
+    Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $NotasExe $NotasExe -Headers $headers
     Write-Host "Downloaded notas.exe" -ForegroundColor Green
 } catch {
     Write-Host "Download failed: $_" -ForegroundColor Red
