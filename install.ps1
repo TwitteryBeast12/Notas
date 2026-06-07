@@ -4,10 +4,6 @@
 Write-Host "Notas Installer" -ForegroundColor Cyan
 Write-Host "===============" -ForegroundColor Cyan
 
-# Prompt for GitHub PAT (required for private repo)
-$pat = Read-Host "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"
-$headers = @{ Authorization = "token $pat" }
-
 $InstallDir = "$env:LOCALAPPDATA\Programs\Notas"
 $NotasExe = "$InstallDir\notas.exe"
 
