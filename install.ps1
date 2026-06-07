@@ -16,14 +16,14 @@ if (-not (Test-Path $InstallDir)) {
 # Download latest release
 Write-Host "Downloading latest release..." -ForegroundColor Yellow
 try {
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/TwitteryBeast12/Notas/releases/latest" -Headers $headers
+    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/TwitteryBeast12/Notas/releases/latest"
     $asset = $release.assets | Where-Object { $_.name -eq "notas-win.exe" }
     
     if (-not $asset) {
         throw "notas-win.exe not found in latest release"
     }
     
-    Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $NotasExe $NotasExe -Headers $headers
+    Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $NotasExe
     Write-Host "Downloaded notas.exe" -ForegroundColor Green
 } catch {
     Write-Host "Download failed: $_" -ForegroundColor Red
