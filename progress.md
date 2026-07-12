@@ -56,8 +56,8 @@
 
 ## Open TODOs
 - [ ] GitHub CDN propagation issue (assets upload but 404 for ~10 min)
-- [ ] Add unit tests for PII scrubber
-- [ ] TUI: Add search/filter for drafts
+- [x] Add unit tests for PII scrubber
+- [x] TUI: Add search/filter for drafts
 - [ ] Web UI (deferred to v0.6)
 - [ ] Support for custom templates
 - [ ] Auto-commit to GitHub after export
