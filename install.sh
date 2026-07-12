@@ -1,6 +1,7 @@
 #!/bin/bash
 ## Notas Installation Script for Linux
-## Downloads and installs the latest notas binary
+## Builds notas from source (git clone + npm install + npm run build) and
+## installs a launcher into ~/.local/bin. No prebuilt binary is required.
 
 set -e
 
@@ -9,72 +10,72 @@ echo "=================="
 
 INSTALL_DIR="$HOME/.local/bin"
 NOTAS_BIN="$INSTALL_DIR/notas"
+SRC_DIR="$HOME/.notas/src"
+REPO="https://github.com/TwitteryBeast12/Notas.git"
 
-## Create install directory
-if [ ! -d "$INSTALL_DIR" ]; then
-  mkdir -p "$INSTALL_DIR"
-  echo "✅ Created install directory: $INSTALL_DIR"
+## 1. Prerequisites
+if ! command -v node >/dev/null 2>&1; then
+  echo "❌ Node.js is required but not found."
+  echo "   Install from https://nodejs.org or: sudo apt install nodejs npm"
+  exit 1
 fi
+echo "✅ Node.js $(node --version) found"
 
-## Download latest release
-echo "📥 Downloading latest release..."
-LATEST_RELEASE=$(curl -s https://api.github.com/repos/TwitteryBeast12/Notas/releases/latest)
-DOWNLOAD_URL=$(echo "$LATEST_RELEASE" \
-  | grep -o '"browser_download_url": "[^"]*notas-linux"' \
-  | cut -d'"' -f4)
-
-if [ -z "$DOWNLOAD_URL" ]; then
-  echo "❌ Failed to find notas-linux in latest release"
+if ! command -v git >/dev/null 2>&1; then
+  echo "❌ git is required to build from source."
   exit 1
 fi
 
-curl -L -o "$NOTAS_BIN" "$DOWNLOAD_URL"
-chmod +x "$NOTAS_BIN"
-echo "✅ Downloaded notas"
+## 2. Install directory
+mkdir -p "$INSTALL_DIR"
 
-## Add to PATH if not already
+## 3. Clone + build from source
+echo "📦 Building notas from source..."
+rm -rf "$SRC_DIR"
+git clone --depth 1 "$REPO" "$SRC_DIR" >/dev/null 2>&1
+( cd "$SRC_DIR" && npm install && npm run build )
+
+cat > "$NOTAS_BIN" <<EOF
+#!/bin/bash
+exec node "$SRC_DIR/dist/cli.js" "\$@"
+EOF
+chmod +x "$NOTAS_BIN"
+echo "✅ Installed launcher to $NOTAS_BIN"
+
+## 4. PATH
 if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
   echo ""
   echo "⚠️  $INSTALL_DIR is not in your PATH"
   echo "Add this to your ~/.bashrc or ~/.zshrc:"
-  echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
-  echo ""
+  echo '  export PATH="$HOME/.local/bin:$PATH"'
   read -p "Add it now? (y/n) " -n 1 -r
   echo
   if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
-    echo "✅ Added to ~/.bashrc"
-    echo "  Run 'source ~/.bashrc' or restart terminal"
+    shellrc="$HOME/.bashrc"
+    [[ -n "$ZSH_VERSION" ]] && shellrc="$HOME/.zshrc"
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$shellrc"
+    echo "✅ Added to $shellrc"
   fi
 fi
 
-## Create config directory
+## 5. Config dir
 mkdir -p "$HOME/.notas"
 
-## Verify installation
+## 6. Verify
 echo ""
 echo "Verifying installation..."
 if "$NOTAS_BIN" --version 2>/dev/null; then
-  VERSION=$("$NOTAS_BIN" --version 2>/dev/null | head -1)
-  echo "✅ Verification successful: $VERSION"
+  echo "✅ Verification successful"
 else
-  echo "⚠️  Verification failed - binary may not be executable"
-  echo "   Try running: $NOTAS_BIN --help"
+  echo "⚠️  Verification failed — try: $NOTAS_BIN --help"
 fi
 
-## Final instructions
 echo ""
 echo "🎉 Installation complete!"
 echo ""
 echo "Next steps:"
-echo "  1. Run: notas config (set up API keys)"
-echo "  2. Record your first session:"
-echo '     notas rec "my-task"'
-echo "     # ... do your work ..."
-echo '     notas stop "my-task"'
-echo ""
-echo "Interactive TUI:"
-echo "  notas review"
+echo "  1. Run: notas config   (set up API keys)"
+echo "  2. Record: notas rec \"my-task\"   ...work...   notas stop \"my-task\""
+echo "  3. Review interactively: notas review"
 echo ""
 echo "Full docs: https://github.com/TwitteryBeast12/Notas"
-

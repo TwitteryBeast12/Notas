@@ -6,12 +6,9 @@ import { homedir } from 'os';
 import DraftList from './components/DraftList.js';
 import DraftView from './components/DraftView.js';
 import ExportView from './components/ExportView.js';
+import { DraftLike } from './draftFilter.js';
 
-interface Draft {
-  filename: string;
-  sessionId: string;
-  type: string;
-}
+type Draft = DraftLike;
 
 const App: React.FC = () => {
   const [view, setView] = useState<'list' | 'preview' | 'export'>('list');
