@@ -2,7 +2,7 @@ import { createWriteStream, mkdirSync, readFileSync, writeFileSync, existsSync, 
 import { join } from 'path';
 import { homedir } from 'os';
 import axios from 'axios';
-import { scrubPII } from './pii';
+import { scrubPII } from './pii.js';
 
 // Noise filters: remove redundant commands
 const NOISE_COMMANDS = new Set(['ls', 'pwd', 'dir', 'clear', 'cls', 'cd', 'echo']);

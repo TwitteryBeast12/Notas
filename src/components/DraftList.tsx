@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
-import { filterDrafts, DraftLike } from '../draftFilter';
-
-interface Draft extends DraftLike {}
+import { filterDrafts, DraftLike } from '../draftFilter.js';
 
 interface Props {
-  drafts: Draft[];
-  onSelect: (draft: Draft) => void;
+  drafts: DraftLike[];
+  onSelect: (draft: DraftLike) => void;
   onExit: () => void;
 }
 
