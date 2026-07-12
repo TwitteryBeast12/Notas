@@ -3,8 +3,8 @@
 ## Current Status
 - **Runtime**: TypeScript/Node.js (v0.6.0)
 - **Python**: Removed entirely
-- **Distribution**: Pre-built binaries (`.exe` + Linux) via `pkg`
-- **Privacy**: All data stays local in `~/.notas/`
+- **Distribution**: Installed by building from source (`install.sh` / `install.ps1` clone + `npm install` + `npm run build`). No prebuilt binaries (pkg can't bundle this ESM project).
+- **Privacy**: All data stays local in `~/.notas/`; the git vault is local-only unless a remote is explicitly configured.
 
 ## Completed (v0.6.0)
 - [x] Plugin architecture foundation (`plugin.ts`)
@@ -14,6 +14,12 @@
 - [x] Config schema extended with `plugins` field
 - [x] PLUGIN_TEMPLATE.md with Confluence example
 - [x] Updated RELEASE_v0.6.0.md
+
+## Completed (v0.6.1)
+- [x] Custom export templates (`src/template.ts`, `notas export --template <name|path>`, `{{sessionId}}/{{date}}` substitution)
+- [x] Full-text draft search (TUI + `searchDrafts` in `draftFilter.ts`)
+- [x] Auto-commit drafts to a local git vault (`src/gitStore.ts`, `notas git init|status|push`); private by default, optional remote push
+- [x] Build fixed for ESM (`tsconfig` Node16); installers build from source
 
 ## Completed (v0.5.1)
 - [x] Fix exportLocal path bug (directory creation)
@@ -59,8 +65,8 @@
 - [x] Add unit tests for PII scrubber
 - [x] TUI: Add search/filter for drafts
 - [ ] Web UI (deferred to v0.6)
-- [ ] Support for custom templates
-- [ ] Auto-commit to GitHub after export
+- [x] Support for custom templates
+- [x] Auto-commit drafts to a local git vault (private; optional remote push)
 - [ ] Consider Git LFS for binaries >50MB
 
 ## Architecture

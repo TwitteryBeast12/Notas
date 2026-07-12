@@ -20,6 +20,7 @@ interface Config {
   notion: { page_id: string; token: string };
   github: { repo: string; token: string };
   autoExport?: { enabled: boolean; target: 'github' | 'notion' | 'local' };
+  git?: { enabled?: boolean; remote?: string };
 }
 
 class LLMProvider {

@@ -7,6 +7,7 @@ import { execSync } from 'child_process';
 import { NotasInterpreter } from './interpreter.js';
 import { NotasExporter, loadConfig } from './exporter.js';
 import { PluginManager, PluginConfig } from './plugin.js';
+import { GitConfig, commitDraft, getVaultDir, initVault, pushVault, vaultStatus } from './gitStore.js';
 
 program
   .name('notas')
@@ -66,6 +67,21 @@ program
       
       const draftPath = join(homedir(), '.notas', 'drafts', `session_${sessionId}_runbook.md`);
       console.log(`✅ Draft generated: ${draftPath}`);
+
+      // Auto-commit to the local vault (privacy-safe: local-only unless a remote is set).
+      const gitCfg = config.git as GitConfig | undefined;
+      if (gitCfg?.enabled) {
+        try {
+          const { committed, sha } = commitDraft(sessionId, draft, getVaultDir());
+          if (committed) {
+            console.log(`🔒 Committed to local vault: ${sha ?? ''}`.trim());
+          } else {
+            console.log(`🔒 Vault unchanged (already committed)`);
+          }
+        } catch (gitErr: any) {
+          console.warn(`⚠️  Vault commit skipped: ${gitErr.message}`);
+        }
+      }
       
       // Auto-export if enabled
       if (config.autoExport?.enabled) {
@@ -173,6 +189,33 @@ program
   });
 
 program
+  .command('git <action>')
+  .description('Manage the local drafts vault (git)')
+  .argument('<action>', 'init | status | push [remote]')
+  .action((action: string, options: { push?: string }, command: any) => {
+    try {
+      const vaultDir = getVaultDir();
+      if (action === 'init') {
+        const { created } = initVault(vaultDir);
+        console.log(created ? '✅ Local vault initialized.' : '🔒 Vault already exists.');
+        console.log(`   Location: ${vaultDir}`);
+        console.log('   Commits stay LOCAL unless you set a remote.');
+      } else if (action === 'status') {
+        console.log(`🔒 Vault: ${vaultStatus(vaultDir)}`);
+      } else if (action === 'push') {
+        // commander stores extra tokens in command.args
+        const remote = (command?.args && command.args[1]) || options?.push;
+        const res = pushVault(remote, vaultDir);
+        console.log(res.pushed ? `✅ ${res.message}` : `⚠️  ${res.message}`);
+      } else {
+        console.log('Usage: notas git <init|status|push [remote]>');
+      }
+    } catch (e: any) {
+      console.error(`❌ Vault error: ${e.message}`);
+    }
+  });
+
+program
   .command('export <sessionId> [target]')
   .description('Export draft to github/notion/local or plugin')
   .action(async (sessionId: string, target?: string) => {
@@ -246,6 +289,7 @@ program
         github: { repo: '', token: '' },
         notion: { page_id: '', token: '' },
         plugins: {},
+        git: { enabled: false },
       };
       writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
       console.log(`✅ Config created: ${configPath}`);
