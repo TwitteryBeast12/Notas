@@ -1,6 +1,6 @@
 # Notas Installation Script for Windows
-# Installs notas: prefers a prebuilt GitHub release, falls back to building
-# from source (git clone + npm install + npm run build).
+# Builds notas from source (git clone + npm install + npm run build) and
+# installs a launcher. No prebuilt binary is required.
 
 $ErrorActionPreference = "Stop"
 
@@ -12,58 +12,35 @@ $NotasExe   = "$InstallDir\notas.bat"
 $SrcDir     = "$env:USERPROFILE\.notas\src"
 $Repo       = "https://github.com/TwitteryBeast12/Notas.git"
 
-# 1. Node.js check
+# 1. Prerequisites
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
     Write-Host "Node.js is required but not found. Install from https://nodejs.org then re-run." -ForegroundColor Red
     exit 1
 }
 Write-Host "Node.js $(node --version) found" -ForegroundColor Green
 
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Host "git is required to build from source." -ForegroundColor Red
+    exit 1
+}
+
 # 2. Install directory
 if (-not (Test-Path $InstallDir)) {
     New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 }
 
-# 3. Try prebuilt release, else build from source
-$asset = $null
-try {
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/TwitteryBeast12/Notas/releases/latest" -TimeoutSec 15
-    $asset = $release.assets | Where-Object { $_.name -eq "notas-win.exe" }
-} catch {
-    Write-Host "Could not reach GitHub releases ($_)" -ForegroundColor Yellow
-}
+# 3. Clone + build from source
+Write-Host "Building notas from source..." -ForegroundColor Yellow
+Remove-Item -Recurse -Force $SrcDir -ErrorAction SilentlyContinue
+git clone --depth 1 $Repo $SrcDir
+Push-Location $SrcDir
+npm install
+npm run build
+Pop-Location
 
-if ($asset) {
-    Write-Host "Downloading prebuilt binary..." -ForegroundColor Yellow
-    Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "$InstallDir\notas.exe"
-    $verify = & "$InstallDir\notas.exe" --version 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        # Launcher .bat that calls the exe
-        Set-Content -Path $NotasExe -Value "@echo off`r`n`"$InstallDir\notas.exe`" %*"
-        Write-Host "Installed prebuilt binary" -ForegroundColor Green
-    } else {
-        Write-Host "Downloaded binary failed verification - building from source instead." -ForegroundColor Yellow
-        Remove-Item "$InstallDir\notas.exe" -Force -ErrorAction SilentlyContinue
-        $asset = $null
-    }
-}
-
-if (-not $asset) {
-    Write-Host "No working prebuilt release found - building from source instead." -ForegroundColor Yellow
-    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-        Write-Host "git is required to build from source." -ForegroundColor Red
-        exit 1
-    }
-    Remove-Item -Recurse -Force $SrcDir -ErrorAction SilentlyContinue
-    git clone --depth 1 $Repo $SrcDir
-    Push-Location $SrcDir
-    npm install
-    npm run build
-    Pop-Location
-    # Launcher .bat that runs the built CLI with node
-    Set-Content -Path $NotasExe -Value "@echo off`r`nnode `"$SrcDir\dist\cli.js`" %*"
-    Write-Host "Built and installed from source" -ForegroundColor Green
-}
+# Launcher .bat that runs the built CLI with node
+Set-Content -Path $NotasExe -Value "@echo off`r`nnode `"$SrcDir\dist\cli.js`" %*"
+Write-Host "Installed launcher to $NotasExe" -ForegroundColor Green
 
 # 4. Add to PATH (user-level)
 $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
@@ -113,7 +90,7 @@ try {
 # 7. Final instructions
 Write-Host ""
 Write-Host "Installation complete!" -ForegroundColor Green
-Write-Host "  - notas.bat (CLI launcher)"
+Write-Host "  - notas.bat (CLI launcher, built from source)"
 Write-Host "  - PowerShell wrapper (notas-rec, notas-stop)"
 Write-Host "  - Added to PATH"
 Write-Host ""

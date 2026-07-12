@@ -1,7 +1,7 @@
 #!/bin/bash
 ## Notas Installation Script for Linux
-## Installs notas: prefers a prebuilt GitHub release, falls back to building
-## from source (git clone + npm install + npm run build).
+## Builds notas from source (git clone + npm install + npm run build) and
+## installs a launcher into ~/.local/bin. No prebuilt binary is required.
 
 set -e
 
@@ -13,50 +13,34 @@ NOTAS_BIN="$INSTALL_DIR/notas"
 SRC_DIR="$HOME/.notas/src"
 REPO="https://github.com/TwitteryBeast12/Notas.git"
 
-## 1. Node.js check
+## 1. Prerequisites
 if ! command -v node >/dev/null 2>&1; then
   echo "❌ Node.js is required but not found."
-  echo "   Install it from https://nodejs.org or your package manager:"
-  echo "     sudo apt install nodejs npm   # Debian/Ubuntu"
-  echo "     brew install node              # macOS"
+  echo "   Install from https://nodejs.org or: sudo apt install nodejs npm"
   exit 1
 fi
 echo "✅ Node.js $(node --version) found"
 
+if ! command -v git >/dev/null 2>&1; then
+  echo "❌ git is required to build from source."
+  exit 1
+fi
+
 ## 2. Install directory
 mkdir -p "$INSTALL_DIR"
 
-## 3. Try prebuilt release first
-echo "📥 Checking for a prebuilt release..."
-LATEST=$(curl -s --max-time 15 https://api.github.com/repos/TwitteryBeast12/Notas/releases/latest || true)
-DOWNLOAD_URL=$(printf '%s' "$LATEST" | grep -o '"browser_download_url": "[^"]*notas-linux"' | cut -d'"' -f4 || true)
+## 3. Clone + build from source
+echo "📦 Building notas from source..."
+rm -rf "$SRC_DIR"
+git clone --depth 1 "$REPO" "$SRC_DIR" >/dev/null 2>&1
+( cd "$SRC_DIR" && npm install && npm run build )
 
-if [ -n "$DOWNLOAD_URL" ]; then
-  echo "⬇️  Downloading prebuilt binary..."
-  curl -L -o "$NOTAS_BIN" "$DOWNLOAD_URL"
-  chmod +x "$NOTAS_BIN"
-  if "$NOTAS_BIN" --version >/dev/null 2>&1; then
-    echo "✅ Installed prebuilt binary"
-  else
-    echo "⚠️  Downloaded binary failed verification — building from source instead."
-    rm -f "$NOTAS_BIN"
-    DOWNLOAD_URL=""
-  fi
-fi
-
-if [ -z "$DOWNLOAD_URL" ]; then
-  echo "⚠️  No working prebuilt release found — building from source."
-  command -v git >/dev/null 2>&1 || { echo "❌ git is required to build from source."; exit 1; }
-  rm -rf "$SRC_DIR"
-  git clone --depth 1 "$REPO" "$SRC_DIR" >/dev/null 2>&1
-  ( cd "$SRC_DIR" && npm install && npm run build )
-  cat > "$NOTAS_BIN" <<EOF
+cat > "$NOTAS_BIN" <<EOF
 #!/bin/bash
 exec node "$SRC_DIR/dist/cli.js" "\$@"
 EOF
-  chmod +x "$NOTAS_BIN"
-  echo "✅ Built and installed from source"
-fi
+chmod +x "$NOTAS_BIN"
+echo "✅ Installed launcher to $NOTAS_BIN"
 
 ## 4. PATH
 if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
