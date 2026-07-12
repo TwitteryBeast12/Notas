@@ -12,7 +12,7 @@ import { GitConfig, commitDraft, getVaultDir, initVault, pushVault, vaultStatus 
 program
   .name('notas')
   .description('Terminal activity to structured documentation')
-  .version('0.6.0');
+  .version('0.6.1');
 
 program
   .command('rec <sessionId>')
