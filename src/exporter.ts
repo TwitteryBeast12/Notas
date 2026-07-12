@@ -9,6 +9,7 @@ interface Config {
   github: { repo: string; token: string };
   notion: { page_id: string; token: string };
   plugins?: Record<string, PluginConfig>;
+  git?: { enabled?: boolean; remote?: string };
 }
 
 export class NotasExporter {
