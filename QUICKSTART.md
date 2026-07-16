@@ -86,11 +86,31 @@ ollama pull llama3
 
 ## Basic Usage
 
-### Record a Session
+### Record a Session (Linux)
+
+Notas captures by sourcing a script into your **current interactive shell** (a CLI can't modify its parent shell). `notas start` prints the exact line to run:
+
 ```bash
-notas rec "server-migration"
+notas start "server-migration"
+# → copy/paste the printed line into the shell you want to record:
+NOTAS_REC_CALLED=1 NOTAS_REC_SESSION=server-migration source ~/.notas/capture_bash.sh
 ```
-*Now run your commands as normal...*
+
+Now run your commands as normal — `cd`, pipes, interactive tools, all captured.
+
+*(Optional, one-time):* auto-load capture for every new shell:
+```bash
+echo 'source ~/.notas/capture_bash.sh' >> ~/.bashrc
+```
+Then just run `notas start "server-migration"` to begin.
+
+### Record a Session (Windows / PowerShell)
+
+Load the capture module into your profile once, then start:
+```powershell
+. "$HOME\.notas\capture.ps1"
+notas start "server-migration"
+```
 
 ### Stop Recording
 ```bash
@@ -102,6 +122,9 @@ Recording stopped: session_server-migration
 Generating draft...
 Draft generated: ~/.notas/drafts/session_server-migration_runbook.md
 ```
+If the shell still shows as recording, run `stop_notas_capture` in that shell.
+
+> **Note:** `notas rec <name>` is kept as a legacy alias for `notas start`.
 
 ### View Drafts
 ```bash
@@ -191,6 +214,12 @@ Now `notas stop` automatically pushes to GitHub.
 **Drafts look wrong**
 - Check Ollama is running: `ollama list`
 - Try different model in config
+
+**"Capture isn't recording anything" (Linux)**
+- `notas start` only *prints* the source line — you must run it in the shell you want to capture.
+- Verify the script is present: `ls ~/.notas/capture_bash.sh`
+- Confirm capture is active in that shell: `echo $NOTAS_SESSION_ACTIVE` (should be `true`). If not, re-run the `NOTAS_REC_CALLED=1 ... source ...` line `notas start` printed.
+- After stopping, the session lock is `~/.notas/active_session.json`; remove it if stale.
 
 ---
 
