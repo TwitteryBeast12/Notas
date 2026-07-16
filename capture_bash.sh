@@ -1,51 +1,85 @@
 #!/bin/bash
-# Notas Bash Capture Prototype
-# Purpose: Securely capture bash session activity for AI documentation.
+# Notas Bash Capture — fixed
+# Purpose: capture bash session activity for AI documentation.
+# Loaded by `notas rec` via `source ~/.notas/capture_bash.sh` in the USER's
+# current shell (NOT a child subshell). Designed to survive `cd`, interactive
+# commands, and TTY changes.
 
-NOTAS_LOG_DIR="$HOME/.notas/sessions"
+NOTAS_LOG_DIR="${NOTAS_LOG_DIR:-$HOME/.notas/sessions}"
+NOTAS_LOCK_FILE="$HOME/.notas/active_session.json"
 mkdir -p "$NOTAS_LOG_DIR"
 
-start_notas_capture() {
-    export NOTAS_SESSION_ACTIVE=true
-    SESSION_ID=$(date +%Y%m%d_%H%M%S)
-    export NOTAS_CURRENT_SESSION="$SESSION_ID"
-    
-    # Output capture: Use 'script' command to record everything
-    # Starts script in background, logs to a file
-    SCRIPT_LOG="$NOTAS_LOG_DIR/session_$SESSION_ID.txt"
-    script -q $SCRIPT_LOG
+# --- logging function (defined FIRST so it always exists when PROMPT_COMMAND fires) ---
+log_last_command() {
+    if [ "$NOTAS_SESSION_ACTIVE" != "true" ]; then
+        return
+    fi
+    # Last command from history (strip leading index). Falls back to the
+    # just-run command captured via the DEBUG trap if history is unavailable.
+    local last_cmd
+    last_cmd=$(history 1 2>/dev/null | sed 's/^[ ]*[0-9]*[ ]*//')
+    [ -z "$last_cmd" ] && last_cmd="$NOTAS_LAST_CMD"
+
+    # Redact obvious secrets.
+    local scrubbed
+    scrubbed=$(printf '%s' "$last_cmd" | sed -E 's/(password|secret|key|token|auth)=[^ ]+/\1=[REDACTED]/gI')
+
+    local ts
+    ts=$(date +"%Y-%m-%d %H:%M:%S")
+    local json_log="$NOTAS_LOG_DIR/session_${NOTAS_CURRENT_SESSION}.json"
+    printf '{"timestamp": "%s", "command": "%s"}\n' "$ts" "$scrubbed" >> "$json_log"
 }
 
-# To capture commands specifically (since 'script' captures output), 
-# we use a custom PROMPT_COMMAND that logs the last executed command.
-log_last_command() {
+# DEBUG trap captures the command BEFORE it runs (more reliable than history 1).
+notas_debug_trap() {
+    [ "$NOTAS_SESSION_ACTIVE" = "true" ] && NOTAS_LAST_CMD="$BASH_COMMAND"
+}
+trap 'notas_debug_trap' DEBUG
+
+start_notas_capture() {
+    if [ -f "$NOTAS_LOCK_FILE" ]; then
+        echo "Notas is already capturing a session (see $NOTAS_LOCK_FILE). Run 'notas stop' first." >&2
+        return 1
+    fi
+    export NOTAS_SESSION_ACTIVE=true
+    export NOTAS_CURRENT_SESSION="${1:-$(date +%Y%m%d_%H%M%S)}"
+    export NOTAS_LAST_CMD=""
+
+    # Persist a lock file so `notas stop` can find this session.
+    cat > "$NOTAS_LOCK_FILE" <<EOF
+{"session_id": "$NOTAS_CURRENT_SESSION", "started_at": "$(date '+%Y-%m-%d %H:%M:%S')", "log_file": "$NOTAS_LOG_DIR/session_${NOTAS_CURRENT_SESSION}.json"}
+EOF
+
+    # Prepend our logger to any existing PROMPT_COMMAND (do not clobber user's).
+    case ";${PROMPT_COMMAND};" in
+        *";log_last_command;"*) ;;
+        *) PROMPT_COMMAND="log_last_command${PROMPT_COMMAND:+; $PROMPT_COMMAND}" ;;
+    esac
+
+    echo "Notas: Capture started."
+    echo "  Session : $NOTAS_CURRENT_SESSION"
+    echo "  Log     : $NOTAS_LOG_DIR/session_${NOTAS_CURRENT_SESSION}.json"
+    echo "  Run 'notas stop' when finished."
+}
+
+stop_notas_capture() {
     if [ "$NOTAS_SESSION_ACTIVE" = "true" ]; then
-        # Get the last command from history
-        LAST_CMD=$(history 1 | sed 's/^[ ]*[0-9]*[ ]*//')
-        
-        # Security Scrubbing: Redact keys, tokens, etc.
-        SCRUBBED_CMD=$(echo "$LAST_CMD" | sed -E 's/(password|secret|key|token|auth)=[^ ]+/\1=[REDACTED]/gI')
-        
-        TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
-        JSON_LOG="$NOTAS_LOG_DIR/session_$NOTAS_CURRENT_SESSION.json"
-        
-        # Append as JSON line
-        echo "{\"timestamp\": \"$TIMESTAMP\", \"command\": \"$SCRUBBED_CMD\"}" >> "$JSON_LOG"
+        # Remove our logger from PROMPT_COMMAND.
+        PROMPT_COMMAND="${PROMPT_COMMAND//log_last_command; /}"
+        PROMPT_COMMAND="${PROMPT_COMMAND//log_last_command/}"
+        unset NOTAS_SESSION_ACTIVE NOTAS_CURRENT_SESSION NOTAS_LAST_CMD
+        trap - DEBUG
+        [ -f "$NOTAS_LOCK_FILE" ] && rm -f "$NOTAS_LOCK_FILE"
+        echo "Notas: Capture stopped."
+    else
+        echo "Notas: Nothing is recording."
     fi
 }
 
-# Set the PROMPT_COMMAND to run our logger after every command
-export PROMPT_COMMAND="log_last_command; $PROMPT_COMMAND"
-
-# Provide a way to stop (since 'script' starts a new shell, 
-# the user just needs to 'exit' or we can provide a stop function)
-stop_notas_capture() {
-    unset NOTAS_SESSION_ACTIVE
-    unset NOTAS_CURRENT_SESSION
-    echo "Notas capture stopped."
-}
-
-# If script is run directly, start capture
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    start_notas_capture
+# --- Activation ---
+# Only auto-start when explicitly invoked with NOTAS_REC_CALLED=1 (set by
+# `notas start`). Plain `source` (e.g. from ~/.bashrc) defines the functions
+# but does NOT begin capturing — the user starts a session explicitly.
+if [ "${NOTAS_REC_CALLED}" = "1" ]; then
+    start_notas_capture "$NOTAS_REC_SESSION"
 fi

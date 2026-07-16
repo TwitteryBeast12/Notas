@@ -15,22 +15,45 @@ program
   .version('0.6.1');
 
 program
+  .command('start [sessionId]')
+  .description('Start recording a terminal session (load capture into current shell)')
+  .action((sessionId?: string) => {
+    const cap = join(homedir(), '.notas', 'capture_bash.sh');
+    const sid = sessionId || '';
+    console.log(`📝 Notas capture ready.`);
+    console.log(``);
+    console.log(`To begin capturing THIS shell, run exactly this:`);
+    if (sid) {
+      console.log(`   NOTAS_REC_CALLED=1 NOTAS_REC_SESSION=${sid} source ${cap}`);
+    } else {
+      console.log(`   NOTAS_REC_CALLED=1 source ${cap}`);
+    }
+    console.log(``);
+    console.log(`Or auto-load it for every new shell by adding to ~/.bashrc:`);
+    console.log(`   echo 'source ${cap}' >> ~/.bashrc`);
+    console.log(``);
+    console.log(`Then run your commands (cd, etc. all captured).`);
+    console.log(`Finish with: notas stop ${sid || '<sessionId>'}`);
+  });
+
+program
   .command('rec <sessionId>')
-  .description('Start recording a terminal session')
+  .description('Start recording a terminal session (legacy alias for start)')
   .action((sessionId: string) => {
     const baseDir = join(homedir(), '.notas', 'sessions');
     mkdirSync(baseDir, { recursive: true });
     const jsonPath = join(baseDir, `session_${sessionId}.json`);
     const txtPath = join(baseDir, `session_${sessionId}.txt`);
-    
+
     writeFileSync(jsonPath, '', 'utf-8');
     writeFileSync(txtPath, '', 'utf-8');
-    
+
     try {
-      const cmd = process.platform === 'win32' 
-        ? `powershell.exe -File capture.ps1 -Start` 
+      const cmd = process.platform === 'win32'
+        ? `powershell.exe -File capture.ps1 -Start`
         : `source ~/.notas/capture_bash.sh`;
-      
+      // Note: a child process cannot modify the parent shell's PROMPT_COMMAND.
+      // On Linux, capture must be sourced into the interactive shell (see `notas start`).
       execSync(cmd, { shell: process.platform === 'win32' ? undefined : '/bin/bash', stdio: 'inherit' });
     } catch (e) {
       console.warn(`⚠️  Warning: Could not trigger capture script. Please ensure it is installed.`);
@@ -47,12 +70,12 @@ program
   .description('Stop recording and generate draft')
   .action(async (sessionId: string) => {
     console.log(`⏹️  Recording stopped: session_${sessionId}`);
+    console.log(`   (If capture is still active in your shell, run: stop_notas_capture)`);
     
     try {
       const cmd = process.platform === 'win32' 
         ? `powershell.exe -File capture.ps1 -Stop` 
         : `source ~/.notas/capture_bash.sh && stop_notas_capture`;
-      
       execSync(cmd, { shell: process.platform === 'win32' ? undefined : '/bin/bash', stdio: 'inherit' });
     } catch (e) {
       console.warn(`⚠️  Warning: Could not trigger stop script.`);
