@@ -15,7 +15,10 @@ export function getVaultDir(base?: string): string {
 }
 
 function run(vaultDir: string, args: string): string {
-  return execSync(`git ${args}`, { cwd: vaultDir, encoding: 'utf-8' }).trim();
+  // Inline identity fallback so commits work even when the machine has no
+  // global git user.name/user.email configured (e.g. CI runners, fresh installs).
+  const identity = `-c user.name="notas" -c user.email="notas@local"`;
+  return execSync(`git ${identity} ${args}`, { cwd: vaultDir, encoding: 'utf-8' }).trim();
 }
 
 /** Lazily init the vault as a git repo. Idempotent. */
