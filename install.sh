@@ -64,8 +64,12 @@ if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
   echo "Warning: $INSTALL_DIR is not in your PATH"
   echo "Add this to your ~/.bashrc or ~/.zshrc:"
   echo '  export PATH="$HOME/.local/bin:$PATH"'
-  read -p "Add it now? (y/n) " -n 1 -r
-  echo
+  # Only prompt when stdin is interactive; under `curl | bash` there is no
+  # TTY, so `read` would fail and `set -e` would abort the install early.
+  if [[ -t 0 ]]; then
+    read -p "Add it now? (y/n) " -n 1 -r
+    echo
+  fi
   if [[ $REPLY =~ ^[Yy]$ ]]; then
     shellrc="$HOME/.bashrc"
     [[ -n "$ZSH_VERSION" ]] && shellrc="$HOME/.zshrc"
