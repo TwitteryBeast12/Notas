@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Text, useInput, useApp } from 'ink';
+import { Box, Text, useInput } from 'ink';
 
 interface Props {
   content: string;

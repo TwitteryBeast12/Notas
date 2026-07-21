@@ -17,6 +17,7 @@ interface Config {
   provider: 'ollama' | 'openai' | 'anthropic';
   ollama: { url: string; model: string };
   openai: { api_key: string; model: string };
+  anthropic: { api_key: string; model: string };
   notion: { page_id: string; token: string };
   github: { repo: string; token: string };
   autoExport?: { enabled: boolean; target: 'github' | 'notion' | 'local' };
@@ -30,7 +31,7 @@ class LLMProvider {
   }
 }
 
-class OllamaProvider extends LLMProvider {
+export class OllamaProvider extends LLMProvider {
   async complete(prompt: string): Promise<string> {
     try {
       const response = await axios.post(
@@ -51,7 +52,7 @@ class OllamaProvider extends LLMProvider {
   }
 }
 
-class OpenAIProvider extends LLMProvider {
+export class OpenAIProvider extends LLMProvider {
   async complete(prompt: string): Promise<string> {
     try {
       const response = await axios.post(
@@ -75,7 +76,45 @@ class OpenAIProvider extends LLMProvider {
   }
 }
 
-class ConfigManager {
+export class AnthropicProvider extends LLMProvider {
+  async complete(prompt: string): Promise<string> {
+    try {
+      const response = await axios.post(
+        'https://api.anthropic.com/v1/messages',
+        {
+          model: this.config.anthropic.model,
+          max_tokens: 4096,
+          messages: [{ role: 'user', content: prompt }],
+        },
+        {
+          headers: {
+            'x-api-key': this.config.anthropic.api_key,
+            'anthropic-version': '2023-06-01',
+            'Content-Type': 'application/json',
+          },
+          timeout: 60000,
+        }
+      );
+      const text = response.data?.content?.[0]?.text;
+      return text || 'AI failed to generate content.';
+    } catch (e: any) {
+      return `Anthropic Error: ${e.message}`;
+    }
+  }
+}
+
+/** Maps a Config to the correct LLM provider. Pure + testable (no network). */
+export function getProvider(config: Config): LLMProvider {
+  switch (config.provider) {
+    case 'ollama': return new OllamaProvider(config);
+    case 'openai': return new OpenAIProvider(config);
+    case 'anthropic': return new AnthropicProvider(config);
+    default:
+      throw new Error(`Unsupported provider: ${config.provider}. Use ollama, openai, or anthropic.`);
+  }
+}
+
+export class ConfigManager {
   private path: string;
 
   constructor(configPath?: string) {
@@ -96,6 +135,7 @@ class ConfigManager {
       provider: 'ollama',
       ollama: { url: 'http://localhost:11434', model: 'llama3' },
       openai: { api_key: '', model: 'gpt-4' },
+      anthropic: { api_key: '', model: 'claude-3-5-sonnet-latest' },
       notion: { page_id: '', token: '' },
       github: { repo: '', token: '' },
       autoExport: { enabled: false, target: 'local' },
@@ -146,7 +186,7 @@ export class NotasInterpreter {
     if (!existsSync(this.draftsDir)) return '';
     const cmds = this.loadSession().map(c => c.command.toLowerCase()).join(' ');
     const words = new Set(cmds.split(/\s+/).filter(w => w.length > 4));
-    
+
     const relevantDocs: string[] = [];
     readdirSync(this.draftsDir).forEach(f => {
       if (f.endsWith('.md')) {
@@ -179,12 +219,12 @@ export class NotasInterpreter {
     const cmds = this.cleanNoise(this.loadSession());
     const output = this.loadOutput();
     const context = this.getRelevantContext();
-    
+
     const templatePath = join(homedir(), '.notas', 'templates', `${templateType}.md`);
     const templateContent = existsSync(templatePath) ? readFileSync(templatePath, 'utf-8') : '';
-    
+
     const cmdSequence = cmds.map(c => `[${c.timestamp}] ${c.command}`).join('\n');
-    
+
     return `
 # ROLE: Expert Technical Writer & SRE
 # TASK: Transform raw terminal logs into a professional document.
@@ -213,20 +253,18 @@ ${output}
 
   async generateDraft(templateType = 'runbook'): Promise<string> {
     const config = new ConfigManager().load();
-    const provider = config.provider === 'ollama' 
-      ? new OllamaProvider(config) 
-      : new OpenAIProvider(config);
-      
+    const provider = getProvider(config);
+
     const prompt = this.preparePrompt(templateType);
     const draftContent = await provider.complete(prompt);
-    
+
     // Scrub PII before saving
     const scrubbedContent = this.scrubPII(draftContent);
-    
+
     mkdirSync(this.draftsDir, { recursive: true });
     const draftPath = join(this.draftsDir, `session_${this.sessionId}_${templateType}.md`);
     writeFileSync(draftPath, scrubbedContent, 'utf-8');
-    
+
     return scrubbedContent;
   }
 }

@@ -9,10 +9,30 @@ import { NotasExporter, loadConfig } from './exporter.js';
 import { PluginManager, PluginConfig } from './plugin.js';
 import { GitConfig, commitDraft, getVaultDir, initVault, pushVault, vaultStatus } from './gitStore.js';
 
+/**
+ * Resolve a draft file for a session. With the `--type` option it targets a
+ * specific template; otherwise it returns the first draft found for the
+ * session (so `view`/`export` work regardless of which template was used).
+ */
+function findDraft(sessionId: string, type?: string): string | undefined {
+  const draftsDir = join(homedir(), '.notas', 'drafts');
+  if (!existsSync(draftsDir)) return undefined;
+
+  if (type) {
+    const exact = join(draftsDir, `session_${sessionId}_${type}.md`);
+    return existsSync(exact) ? exact : undefined;
+  }
+
+  const candidates = readdirSync(draftsDir)
+    .filter(f => f.startsWith(`session_${sessionId}_`) && f.endsWith('.md'))
+    .sort();
+  return candidates.length > 0 ? join(draftsDir, candidates[0]) : undefined;
+}
+
 program
   .name('notas')
   .description('Terminal activity to structured documentation')
-  .version('0.6.1');
+  .version('0.6.2');
 
 program
   .command('start [sessionId]')
@@ -40,35 +60,31 @@ program
   .command('rec <sessionId>')
   .description('Start recording a terminal session (legacy alias for start)')
   .action((sessionId: string) => {
-    const baseDir = join(homedir(), '.notas', 'sessions');
-    mkdirSync(baseDir, { recursive: true });
-    const jsonPath = join(baseDir, `session_${sessionId}.json`);
-    const txtPath = join(baseDir, `session_${sessionId}.txt`);
-
-    writeFileSync(jsonPath, '', 'utf-8');
-    writeFileSync(txtPath, '', 'utf-8');
-
-    try {
-      const cmd = process.platform === 'win32'
-        ? `powershell.exe -File capture.ps1 -Start`
-        : `source ~/.notas/capture_bash.sh`;
-      // Note: a child process cannot modify the parent shell's PROMPT_COMMAND.
-      // On Linux, capture must be sourced into the interactive shell (see `notas start`).
-      execSync(cmd, { shell: process.platform === 'win32' ? undefined : '/bin/bash', stdio: 'inherit' });
-    } catch (e) {
-      console.warn(`⚠️  Warning: Could not trigger capture script. Please ensure it is installed.`);
+    const cap = join(homedir(), '.notas', 'capture_bash.sh');
+    // A child process cannot modify its parent shell, so we print the exact
+    // line the user must run in the shell they want to capture.
+    if (process.platform === 'win32') {
+      console.log(`📝 Notas capture ready. In PowerShell, run exactly this:`);
+      console.log(`   . "$HOME\\.notas\\capture.ps1"`);
+      console.log(`   notas rec ${sessionId}`);
+    } else {
+      console.log(`📝 Notas capture ready. In THIS shell, run exactly this:`);
+      console.log(`   NOTAS_REC_CALLED=1 NOTAS_REC_SESSION=${sessionId} source ${cap}`);
+      console.log(``);
+      console.log(`Or auto-load it for every new shell by adding to ~/.bashrc:`);
+      console.log(`   echo 'source ${cap}' >> ~/.bashrc`);
     }
-
-    console.log(`📝 Recording started: session_${sessionId}`);
-    console.log(`   Commands: ${jsonPath}`);
-    console.log(`   Output: ${txtPath}`);
-    console.log(`   Run 'notas stop ${sessionId}' when finished.`);
+    console.log(``);
+    console.log(`Then run your commands (cd, etc. all captured).`);
+    console.log(`Finish with: notas stop ${sessionId}`);
   });
 
 program
   .command('stop <sessionId>')
   .description('Stop recording and generate draft')
-  .action(async (sessionId: string) => {
+  .option('-t, --type <type>', 'Template type: runbook | wiki | jira', 'runbook')
+  .action(async (sessionId: string, options: { type?: string }) => {
+    const draftType = (options.type || 'runbook').toLowerCase();
     console.log(`⏹️  Recording stopped: session_${sessionId}`);
     console.log(`   (If capture is still active in your shell, run: stop_notas_capture)`);
     
@@ -85,10 +101,10 @@ program
     
     try {
       const interpreter = new NotasInterpreter(sessionId);
-      const draft = await interpreter.generateDraft('runbook');
+      const draft = await interpreter.generateDraft(draftType);
       const config = interpreter.getConfig();
       
-      const draftPath = join(homedir(), '.notas', 'drafts', `session_${sessionId}_runbook.md`);
+      const draftPath = join(homedir(), '.notas', 'drafts', `session_${sessionId}_${draftType}.md`);
       console.log(`✅ Draft generated: ${draftPath}`);
 
       // Auto-commit to the local vault (privacy-safe: local-only unless a remote is set).
@@ -177,7 +193,7 @@ program
     
     console.log('\n📝 Available Drafts:\n');
     files.forEach((f, i) => {
-      const match = f.match(/session_(.+)_(.+)\.md/);
+      const match = f.match(/^session_(.+)_([^_]+)\.md$/);
       const sessionId = match ? match[1] : 'unknown';
       const type = match ? match[2] : 'runbook';
       console.log(`  ${i + 1}. ${f} (Session: ${sessionId}, Type: ${type})`);
@@ -199,9 +215,9 @@ program
   .command('view <sessionId>')
   .description('View draft content')
   .action((sessionId: string) => {
-    const draftPath = join(homedir(), '.notas', 'drafts', `session_${sessionId}_runbook.md`);
-    if (!existsSync(draftPath)) {
-      console.error(`❌ Draft not found: ${draftPath}`);
+    const draftPath = findDraft(sessionId);
+    if (!draftPath) {
+      console.error(`❌ Draft not found for session: ${sessionId}`);
       return;
     }
     
@@ -242,9 +258,9 @@ program
   .command('export <sessionId> [target]')
   .description('Export draft to github/notion/local or plugin')
   .action(async (sessionId: string, target?: string) => {
-    const draftPath = join(homedir(), '.notas', 'drafts', `session_${sessionId}_runbook.md`);
-    if (!existsSync(draftPath)) {
-      console.error(`❌ Draft not found: ${draftPath}`);
+    const draftPath = findDraft(sessionId);
+    if (!draftPath) {
+      console.error(`❌ Draft not found for session: ${sessionId}`);
       return;
     }
     
@@ -309,6 +325,8 @@ program
       const defaultConfig = {
         provider: 'ollama',
         ollama: { url: 'http://localhost:11434', model: 'llama3' },
+        openai: { api_key: '', model: 'gpt-4' },
+        anthropic: { api_key: '', model: 'claude-3-5-sonnet-latest' },
         github: { repo: '', token: '' },
         notion: { page_id: '', token: '' },
         plugins: {},
