@@ -73,6 +73,7 @@
 - [ ] Publish `notas-cli` to npm (would remove the need to build from source on install)
 - [ ] Add tests for cli/interpreter/exporter/plugin/template (currently only draftFilter, gitStore, pii, provider are covered)
 - [ ] Re-evaluate pinned `overrides` (esbuild 0.28.1 / vite 6.4.3) each release; remove pins once vitest/vite ship patched versions
+- [ ] Upgrade vitest to v5 (clears the tinypool/@vitest/mocker advisories without an override; breaking change, needs test validation)
 
 ## Architecture
 - **Capture**: `capture.ps1` (Windows) / `capture_bash.sh` (Linux) call `notas start` / `notas stop`
