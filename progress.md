@@ -1,7 +1,7 @@
 # Notas Development Progress
 
 ## Current Status
-- **Runtime**: TypeScript/Node.js (v0.6.0)
+- **Runtime**: TypeScript/Node.js (v0.6.2)
 - **Python**: Removed entirely
 - **Distribution**: Installed by building from source (`install.sh` / `install.ps1` clone + `npm install` + `npm run build`). No prebuilt binaries (pkg can't bundle this ESM project).
 - **Privacy**: All data stays local in `~/.notas/`; the git vault is local-only unless a remote is explicitly configured.
@@ -20,6 +20,14 @@
 - [x] Full-text draft search (TUI + `searchDrafts` in `draftFilter.ts`)
 - [x] Auto-commit drafts to a local git vault (`src/gitStore.ts`, `notas git init|status|push`); private by default, optional remote push
 - [x] Build fixed for ESM (`tsconfig` Node16); installers build from source
+
+## Completed (v0.6.2)
+- [x] Installer cleanup: emoji stripped from output, esbuild postinstall approved under npm allowScripts, `curl | bash` no longer aborts without a TTY
+- [x] Fixed broken `rec` on Linux (capture_bash.sh now records instead of silently failing)
+- [x] Added Anthropic provider (`anthropic` no longer misroutes to the OpenAI client)
+- [x] `notas stop` accepts `--type runbook|wiki|jira` so the shipped wiki/jira templates are usable
+- [x] `--version` reports the correct version; `list` regex no longer splits session names containing underscores
+- [x] Provider unit tests (`tests/provider.test.ts`)
 
 ## Completed (v0.5.1)
 - [x] Fix exportLocal path bug (directory creation)
@@ -61,21 +69,20 @@
 - [x] TypeScript migration (initial)
 
 ## Open TODOs
-- [ ] GitHub CDN propagation issue (assets upload but 404 for ~10 min)
-- [x] Add unit tests for PII scrubber
-- [x] TUI: Add search/filter for drafts
-- [ ] Web UI (deferred to v0.6)
-- [x] Support for custom templates
-- [x] Auto-commit drafts to a local git vault (private; optional remote push)
-- [ ] Consider Git LFS for binaries >50MB
+- [ ] Web UI for browser-based editing (deferred to v0.7)
+- [ ] Publish `notas-cli` to npm (would remove the need to build from source on install)
+- [ ] Add tests for cli/interpreter/exporter/plugin/template (currently only draftFilter, gitStore, pii, provider are covered)
+- [ ] Re-evaluate pinned `overrides` (esbuild 0.28.1 / vite 6.4.3) each release; remove pins once vitest/vite ship patched versions
 
 ## Architecture
-- **Capture**: `capture.ps1` calls `notas rec` / `notas stop`
-- **Interpret**: Ollama/OpenAI via `interpreter.ts`
-- **Export**: `exporter.ts` handles GitHub/Notion/Local
+- **Capture**: `capture.ps1` (Windows) / `capture_bash.sh` (Linux) call `notas start` / `notas stop`
+- **Interpret**: Ollama/OpenAI/Anthropic via `interpreter.ts`
+- **Export**: `exporter.ts` handles GitHub/Notion/Local (+ community plugins)
 - **Storage**: `~/.notas/sessions/` (raw), `~/.notas/drafts/` (AI output)
 
 ## Release History
+- **v0.6.2** (2026-07-19): Installer cleanup; rec/Anthropic/template fixes (#6, #7, #8)
+- **v0.6.1** (2026-07-12): Custom export templates, full-text search, local git vault
 - **v0.6.0** (2026-04-30): Plugin system - community exporters
 - **v0.5.1** (2026-04-30): Bugfix - export path, error handling, PII scrubber
 - **v0.5.0** (2026-04-20): Auto-export, session diff/merge, docs
